@@ -16,4 +16,5 @@ requests
 sqlalchemy
 alembic
 psycopg2-binary
-Pillow 
+Pillow
+email-validator 
