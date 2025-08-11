@@ -43,7 +43,7 @@ class AIService:
         #     images = []
             import requests
 
-            api_key = ttings.GROK_API_KEY
+            api_key = settings.GROK_API_KEY
 
             url = "https://api.groq.com/openai/v1/chat/completions"
 
