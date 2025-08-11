@@ -62,10 +62,10 @@ class AIService:
             }
 
             response = requests.post(url, headers=headers, json=data)
-            print(response.json()["choices"][0]["message"]["content"])
+            generated_content = response.json()["choices"][0]["message"]["content"]
 
-            print(response)
-            generated_content = response.choices[0].message.content
+            # print(response)
+            # generated_content = response.choices[0].message.content
             images = []
             if include_images:
                 images = await self._generate_images_for_content(prompt, generated_content)
