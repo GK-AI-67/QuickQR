@@ -87,4 +87,23 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
     token = create_access_token(email)
     return TokenResponse(access_token=token)
 
+@router.get("/debug/user")
+def debug_user_info(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Debug endpoint to check user status"""
+    try:
+        email = decode_token(token)
+        if not email:
+            return {"error": "Invalid token"}
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return {"error": "User not found"}
+        return {
+            "email": user.email,
+            "is_active": user.is_active,
+            "provider": user.provider,
+            "created_at": user.created_at
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 

@@ -209,7 +209,7 @@ async def analyze_content(content: str, qr_type: str):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @ai_router.post("/generate-content")
-async def generate_content(request: ContentGenerationRequest, user=Depends(get_current_user)):
+async def generate_content(request: ContentGenerationRequest):
     """Generate content based on user prompt with strict limits"""
     try:
         # Validate prompt length

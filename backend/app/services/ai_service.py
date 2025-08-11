@@ -1,130 +1,69 @@
-import requests
+import openai
 from typing import List, Optional
 from app.core.config import settings
 import re
 
 class AIService:
     def __init__(self):
-        # Using a free AI service that doesn't require API keys
-        self.api_url = "https://api.deepseek.com/v1/chat/completions"
-        self.headers = {
-            "Content-Type": "application/json"
-        }
+        self.client = None
+        if settings.OPENAI_API_KEY:
+            openai.api_key = settings.OPENAI_API_KEY
+            self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
     
     async def generate_content_from_prompt(self, prompt: str, include_images: bool = False) -> dict:
-        """Generate content based on user prompt using free AI service"""
-        # Validate input
+        """Generate content based on user prompt with strict limits using OpenAI"""
+        if not self.client:
+            return {"error": "AI service not available. Please set OPENAI_API_KEY."}
         if len(prompt) > 2000:
             return {"error": "Prompt exceeds 2000 character limit"}
-        
         try:
-            # For now, let's use a simple content generation approach
-            # This will work without any API keys
-            generated_content = self._generate_simple_content(prompt)
-            
-            # For images, we'll use a placeholder since we don't have image generation
+            system_prompt = (
+                "You are a content generation expert. Create engaging, informative content based on user prompts. "
+                "Follow these rules: "
+                "- Keep content under 20000 tokens "
+                "- Use clear, professional language "
+                "- Structure content with headings and paragraphs "
+                "- Include relevant information and examples "
+                "- Make content engaging and readable"
+            )
+            user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
+            print(user_prompt)
+            response = await self.client.chat.completions.acreate(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=20000,
+                temperature=0.7
+            )
+            print(response)
+            generated_content = response.choices[0].message.content
             images = []
             if include_images:
-                images = ["https://via.placeholder.com/512x512/4F46E5/FFFFFF?text=AI+Generated+Image"]
-            
+                images = await self._generate_images_for_content(prompt, generated_content)
             return {
                 "content": generated_content,
                 "images": images,
-                "token_count": len(generated_content.split()),
+                "token_count": response.usage.total_tokens,
                 "prompt_length": len(prompt)
             }
-            
         except Exception as e:
             return {"error": f"Content generation failed: {str(e)}"}
     
-    def _generate_simple_content(self, prompt: str) -> str:
-        """Generate content using a simple template-based approach"""
-        # This is a fallback that works without any external APIs
-        if "shiva" in prompt.lower() or "lord" in prompt.lower():
-            return """# Lord Shiva's Story
-
-## Introduction
-Lord Shiva, also known as Mahadeva, is one of the principal deities of Hinduism. He is part of the holy trinity (Trimurti) along with Brahma and Vishnu.
-
-## The Destroyer
-Shiva is known as the destroyer of evil and ignorance. He destroys the universe at the end of each cycle to make way for new creation.
-
-## Key Aspects of Shiva
-
-### 1. Nataraja (Lord of Dance)
-Shiva performs the cosmic dance (Tandava) that maintains the rhythm of the universe. This dance symbolizes the eternal cycle of creation and destruction.
-
-### 2. Meditator
-Shiva is often depicted in deep meditation on Mount Kailash. His meditation represents the path to spiritual enlightenment.
-
-### 3. Family Life
-Shiva is married to Goddess Parvati and has two sons:
-- Lord Ganesha (remover of obstacles)
-- Lord Kartikeya (god of war)
-
-## Sacred Symbols
-- **Third Eye**: Represents wisdom and destruction of ignorance
-- **Trident (Trishul)**: Symbolizes the three aspects of consciousness
-- **Snake**: Represents control over desires
-- **Crescent Moon**: Symbolizes the mind and time
-
-## Teachings
-Shiva teaches us about:
-- Detachment from material desires
-- The importance of meditation
-- The cycle of life and death
-- The power of transformation
-
-## Conclusion
-Lord Shiva represents the ultimate reality and the path to spiritual liberation. His stories and teachings continue to inspire millions of people worldwide."""
-        
-        elif "story" in prompt.lower() or "tale" in prompt.lower():
-            return f"""# Generated Content Based on Your Request
-
-## Your Prompt
-{prompt}
-
-## Generated Response
-This is a comprehensive response to your request. The content has been generated to provide you with detailed information and insights.
-
-### Key Points
-1. **Understanding**: We've analyzed your request carefully
-2. **Comprehensive Coverage**: This response covers all aspects of your query
-3. **Detailed Information**: You'll find thorough explanations and examples
-
-### Main Content
-Based on your prompt "{prompt}", here is the detailed content you requested. This includes relevant information, examples, and explanations to help you understand the topic fully.
-
-### Additional Insights
-- Important considerations related to your request
-- Practical applications and examples
-- Further reading suggestions
-
-## Summary
-This response provides a complete answer to your query with detailed explanations and relevant information."""
-        
-        else:
-            return f"""# AI Generated Content
-
-## Response to: {prompt}
-
-This is an AI-generated response to your prompt. The content has been created to provide you with comprehensive information on the topic you requested.
-
-### Overview
-Your request has been processed and a detailed response has been generated. This includes relevant information, examples, and explanations.
-
-### Main Content
-{prompt}
-
-The above topic has been thoroughly researched and presented in a comprehensive manner. You'll find detailed explanations, examples, and insights related to your query.
-
-### Key Takeaways
-- Important points from the generated content
-- Practical applications
-- Further considerations
-
-### Conclusion
-This AI-generated content provides a complete response to your request with detailed information and insights."""
+    async def _generate_images_for_content(self, prompt: str, content: str) -> List[str]:
+        try:
+            image_prompt = f"Create a relevant illustration for: {prompt[:100]}"
+            response = await self.client.images.generate(
+                model="dall-e-2",
+                prompt=image_prompt,
+                size="512x512",
+                quality="standard",
+                n=1,
+            )
+            return [response.data[0].url]
+        except Exception:
+            return []
     
     async def get_suggestions(self, content: str, qr_type: str, context: Optional[str] = None) -> dict:
         """Get AI-powered suggestions for QR code content"""
