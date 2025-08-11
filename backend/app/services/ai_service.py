@@ -28,15 +28,15 @@ class AIService:
             )
             user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
             print(user_prompt)
-            response = await self.client.chat.completions.acreate(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=20000,
-                temperature=0.7
-            )
+            response = await client.chat.completions.create(
+            model="gpt-5-nano",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=2000,  # careful: 20000 is above the limit
+            temperature=0.7
+        )
             print(response)
             generated_content = response.choices[0].message.content
             images = []
