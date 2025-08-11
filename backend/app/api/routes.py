@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.models.qr_models import (
     QRCodeRequest, QRCodeResponse, AISuggestionRequest, AISuggestionResponse, QRContentDisplay
 )
@@ -23,6 +24,11 @@ qr_service = QRCodeService()
 ai_service = AIService()
 content_service = ContentService()
 db_service = DatabaseService()
+
+# Pydantic model for content generation request
+class ContentGenerationRequest(BaseModel):
+    prompt: str
+    include_images: bool = False
 
 @qr_router.post("/generate", response_model=QRCodeResponse)
 async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -203,18 +209,18 @@ async def analyze_content(content: str, qr_type: str):
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @ai_router.post("/generate-content")
-async def generate_content(prompt: str, include_images: bool = False):
+async def generate_content(request: ContentGenerationRequest):
     """Generate content based on user prompt with strict limits"""
     try:
         # Validate prompt length
-        if len(prompt) > 2000:
+        if len(request.prompt) > 2000:
             raise HTTPException(status_code=400, detail="Prompt exceeds 2000 character limit")
         
-        if not prompt.strip():
+        if not request.prompt.strip():
             raise HTTPException(status_code=400, detail="Prompt cannot be empty")
         
         # Generate content
-        result = await ai_service.generate_content_from_prompt(prompt, include_images)
+        result = await ai_service.generate_content_from_prompt(request.prompt, request.include_images)
         
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
