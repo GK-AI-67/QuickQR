@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
 export default function LoginPage() {
   const { login } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const googleDivRef = useRef<HTMLDivElement>(null)
@@ -17,6 +19,7 @@ export default function LoginPage() {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
     login(res.data.access_token)
+    navigate('/generator')
   }
 
   // Google Identity Services
@@ -24,7 +27,10 @@ export default function LoginPage() {
     const cb = (resp: any) => {
       api
         .post('/auth/google', { id_token: resp.credential })
-        .then((r) => login(r.data.access_token))
+        .then((r) => {
+          login(r.data.access_token)
+          navigate('/generator')
+        })
     }
     const win = window as any
     if (!win.google) {
@@ -41,7 +47,7 @@ export default function LoginPage() {
       win.google.accounts.id.initialize({ client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, callback: cb })
       if (googleDivRef.current) win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
     }
-  }, [])
+  }, [login, navigate])
 
   return (
     <div className="max-w-md mx-auto p-6">

@@ -9,6 +9,7 @@
     }
   ],
   "env": {
-    "VITE_API_URL": "https://quickqr-backend.onrender.com/api/v1"
+    "VITE_API_URL": "https://quickqr-backend-xdck.onrender.com/api/v1",
+    "VITE_GOOGLE_CLIENT_ID": "302556385606-stk29ue1u4c96m12qu7b99e9aul6iemq.apps.googleusercontent.com"
   }
 } 
