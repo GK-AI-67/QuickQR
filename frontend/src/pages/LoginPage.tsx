@@ -25,11 +25,19 @@ export default function LoginPage() {
   // Google Identity Services
   useEffect(() => {
     const cb = (resp: any) => {
+      console.log('Google login callback triggered', resp)
       api
         .post('/auth/google', { id_token: resp.credential })
         .then((r) => {
+          console.log('Google login successful', r.data)
           login(r.data.access_token)
-          navigate('/generator')
+          console.log('Navigating to generator...')
+          setTimeout(() => {
+            navigate('/generator')
+          }, 100)
+        })
+        .catch((error) => {
+          console.error('Google login failed:', error)
         })
     }
     const win = window as any
@@ -39,11 +47,13 @@ export default function LoginPage() {
       s.async = true
       s.defer = true
       s.onload = () => {
+        console.log('Google script loaded, initializing...')
         win.google.accounts.id.initialize({ client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, callback: cb })
         if (googleDivRef.current) win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
       }
       document.body.appendChild(s)
     } else {
+      console.log('Google already loaded, initializing...')
       win.google.accounts.id.initialize({ client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, callback: cb })
       if (googleDivRef.current) win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
     }
@@ -59,6 +69,15 @@ export default function LoginPage() {
       </form>
       <div className="mt-6 flex items-center"><div className="flex-1 h-px bg-gray-200" /><span className="px-3 text-gray-500">or</span><div className="flex-1 h-px bg-gray-200" /></div>
       <div ref={googleDivRef} className="mt-4 flex justify-center" />
+      <button 
+        onClick={() => {
+          console.log('Test navigation button clicked')
+          navigate('/generator')
+        }}
+        className="mt-4 w-full bg-blue-500 text-white py-2 rounded"
+      >
+        Test Navigation to Generator
+      </button>
     </div>
   )
 }
