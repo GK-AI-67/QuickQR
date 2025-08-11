@@ -68,6 +68,12 @@ export const aiAPI = {
     return response.data
   },
 
+  // Generate Content
+  generateContent: async (prompt: string, include_images: boolean = false) => {
+    const response = await api.post('/ai/generate-content', { prompt, include_images })
+    return response.data
+  },
+
   // Check AI Health
   checkHealth: async () => {
     const response = await api.get('/ai/health')

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import api from '../services/api'
+import { aiAPI } from '../services/api'
 
 interface GeneratedContent {
   content: string
@@ -37,15 +37,11 @@ export default function AIContentPage() {
     setGeneratedContent(null)
 
     try {
-      const response = await api.post('/ai/generate-content', {
-        prompt: prompt.trim(),
-        include_images: includeImages
-      })
-
-      setGeneratedContent(response.data)
+      const response = await aiAPI.generateContent(prompt.trim(), includeImages)
+      setGeneratedContent(response)
       setShowPDF(true)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to generate content')
+      setError(err.message || 'Failed to generate content')
     } finally {
       setIsGenerating(false)
     }
