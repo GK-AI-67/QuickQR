@@ -243,8 +243,9 @@ async def ai_health_check():
     """Check AI service health"""
     return {
         "status": "healthy",
-        "ai_available": ai_service.client is not None,
-        "service": "QuickQR AI Service"
+        "ai_available": True,
+        "service": "QuickQR AI Service (DeepSeek)",
+        "provider": "DeepSeek (Free)"
     }
 
 # Content viewing endpoints

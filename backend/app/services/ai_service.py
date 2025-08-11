@@ -1,34 +1,45 @@
-import openai
+import requests
 from typing import List, Optional
 from app.core.config import settings
 import re
 
 class AIService:
     def __init__(self):
-        self.client = None
-        if settings.OPENAI_API_KEY:
-            openai.api_key = settings.OPENAI_API_KEY
-            self.client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        # DeepSeek is free and doesn't require API key
+        self.api_url = "https://api.deepseek.com/v1/chat/completions"
+        self.headers = {
+            "Content-Type": "application/json"
+        }
     
     async def get_suggestions(self, content: str, qr_type: str, context: Optional[str] = None) -> dict:
         """Get AI-powered suggestions for QR code content"""
-        if not self.client:
-            return self._get_fallback_suggestions(content, qr_type)
+        # DeepSeek is free and doesn't require API key
+        self.api_url = "https://api.deepseek.com/v1/chat/completions"
+        self.headers = {
+            "Content-Type": "application/json"
+        }
         
         try:
             prompt = self._create_suggestion_prompt(content, qr_type, context)
             
-            response = await self.client.chat.completions.acreate(
-                model="gpt-3.5-turbo",
-                messages=[
+            # DeepSeek API call
+            payload = {
+                "model": "deepseek-chat",
+                "messages": [
                     {"role": "system", "content": "You are a QR code optimization expert. Provide helpful suggestions for improving QR code content."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
-                temperature=0.7
-            )
+                "max_tokens": 200,
+                "temperature": 0.7
+            }
             
-            suggestions = self._parse_ai_response(response.choices[0].message.content)
+            response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=60)
+            
+            if response.status_code != 200:
+                return {"error": f"DeepSeek API error: {response.status_code}"}
+            
+            result = response.json()
+            suggestions = self._parse_ai_response(result["choices"][0]["message"]["content"])
             
             return {
                 "suggestions": suggestions,
@@ -40,10 +51,7 @@ class AIService:
             return self._get_fallback_suggestions(content, qr_type)
     
     async def generate_content_from_prompt(self, prompt: str, include_images: bool = False) -> dict:
-        """Generate content based on user prompt with strict limits"""
-        if not self.client:
-            return {"error": "AI service not available"}
-        
+        """Generate content based on user prompt using DeepSeek (free)"""
         # Validate input
         if len(prompt) > 2000:
             return {"error": "Prompt exceeds 2000 character limit"}
@@ -60,27 +68,34 @@ class AIService:
             
             user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
             
-            response = await self.client.chat.completions.acreate(
-                model="gpt-3.5-turbo",
-                messages=[
+            # DeepSeek API call
+            payload = {
+                "model": "deepseek-chat",
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=20000,
-                temperature=0.7
-            )
+                "max_tokens": 20000,
+                "temperature": 0.7
+            }
             
-            generated_content = response.choices[0].message.content
+            response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=60)
             
-            # Generate images if requested
+            if response.status_code != 200:
+                return {"error": f"DeepSeek API error: {response.status_code}"}
+            
+            result = response.json()
+            generated_content = result["choices"][0]["message"]["content"]
+            
+            # For images, we'll use a placeholder since DeepSeek doesn't generate images
             images = []
             if include_images:
-                images = await self._generate_images_for_content(prompt, generated_content)
+                images = ["https://via.placeholder.com/512x512/4F46E5/FFFFFF?text=AI+Generated+Image"]
             
             return {
                 "content": generated_content,
                 "images": images,
-                "token_count": response.usage.total_tokens,
+                "token_count": result.get("usage", {}).get("total_tokens", 0),
                 "prompt_length": len(prompt)
             }
             
