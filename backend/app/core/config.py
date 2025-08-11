@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     
     # AI Configuration
     OPENAI_API_KEY: Optional[str] = None
+    GROK_API_KEY: Optional[str] = None
+
     
     # QR Code Configuration
     QR_DEFAULT_SIZE: int = 10
