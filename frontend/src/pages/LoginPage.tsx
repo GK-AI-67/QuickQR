@@ -24,6 +24,8 @@ export default function LoginPage() {
 
   // Google Identity Services
   useEffect(() => {
+    console.log('Google client ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
+    
     const cb = (resp: any) => {
       console.log('Google login callback triggered', resp)
       api
@@ -48,14 +50,37 @@ export default function LoginPage() {
       s.defer = true
       s.onload = () => {
         console.log('Google script loaded, initializing...')
-        win.google.accounts.id.initialize({ client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, callback: cb })
-        if (googleDivRef.current) win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
+        try {
+          win.google.accounts.id.initialize({ 
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, 
+            callback: cb 
+          })
+          if (googleDivRef.current) {
+            win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
+            console.log('Google button rendered')
+          }
+        } catch (error) {
+          console.error('Error initializing Google:', error)
+        }
+      }
+      s.onerror = () => {
+        console.error('Failed to load Google script')
       }
       document.body.appendChild(s)
     } else {
       console.log('Google already loaded, initializing...')
-      win.google.accounts.id.initialize({ client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, callback: cb })
-      if (googleDivRef.current) win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
+      try {
+        win.google.accounts.id.initialize({ 
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID, 
+          callback: cb 
+        })
+        if (googleDivRef.current) {
+          win.google.accounts.id.renderButton(googleDivRef.current, { theme: 'outline', size: 'large' })
+          console.log('Google button rendered')
+        }
+      } catch (error) {
+        console.error('Error initializing Google:', error)
+      }
     }
   }, [login, navigate])
 
@@ -77,6 +102,16 @@ export default function LoginPage() {
         className="mt-4 w-full bg-blue-500 text-white py-2 rounded"
       >
         Test Navigation to Generator
+      </button>
+      <button 
+        onClick={() => {
+          console.log('Environment check:')
+          console.log('VITE_API_URL:', import.meta.env.VITE_API_URL)
+          console.log('VITE_GOOGLE_CLIENT_ID:', import.meta.env.VITE_GOOGLE_CLIENT_ID)
+        }}
+        className="mt-2 w-full bg-green-500 text-white py-2 rounded"
+      >
+        Check Environment Variables
       </button>
     </div>
   )
