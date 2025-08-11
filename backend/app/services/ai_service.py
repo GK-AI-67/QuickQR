@@ -72,7 +72,7 @@ class AIService:
             return {
                 "content": generated_content,
                 "images": images,
-                "token_count": response.usage.total_tokens,
+                #"token_count": response.usage.total_tokens,
                 "prompt_length": len(prompt)
             }
         except Exception as e:
