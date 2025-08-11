@@ -197,16 +197,40 @@ async def get_ai_suggestions(request: AISuggestionRequest):
 async def analyze_content(content: str, qr_type: str):
     """Analyze QR code content for potential issues"""
     try:
-        if not content.strip():
-            raise HTTPException(status_code=400, detail="Content cannot be empty")
-        
         analysis = await ai_service.analyze_content(content, qr_type)
         return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@ai_router.post("/generate-content")
+async def generate_content(prompt: str, include_images: bool = False):
+    """Generate content based on user prompt with strict limits"""
+    try:
+        # Validate prompt length
+        if len(prompt) > 2000:
+            raise HTTPException(status_code=400, detail="Prompt exceeds 2000 character limit")
+        
+        if not prompt.strip():
+            raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+        
+        # Generate content
+        result = await ai_service.generate_content_from_prompt(prompt, include_images)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        return {
+            "success": True,
+            "content": result["content"],
+            "images": result["images"],
+            "token_count": result["token_count"],
+            "prompt_length": result["prompt_length"]
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to analyze content: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Content generation failed: {str(e)}")
 
 @ai_router.get("/health")
 async def ai_health_check():

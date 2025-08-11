@@ -14,6 +14,7 @@ import Footer from './components/Footer'
 import HomePage from './pages/HomePage'
 import GeneratorPage from './pages/GeneratorPage'
 import AboutPage from './pages/AboutPage'
+import AIContentPage from './pages/AIContentPage'
 
 function App() {
   return (
@@ -48,6 +49,15 @@ function App() {
               <RequireAuth>
                 <GeneratorPage />
               </RequireAuth>
+            </motion.div>
+          } />
+          <Route path="/ai-content" element={
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <AIContentPage />
             </motion.div>
           } />
           <Route path="/about" element={

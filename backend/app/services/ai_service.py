@@ -39,6 +39,73 @@ class AIService:
         except Exception as e:
             return self._get_fallback_suggestions(content, qr_type)
     
+    async def generate_content_from_prompt(self, prompt: str, include_images: bool = False) -> dict:
+        """Generate content based on user prompt with strict limits"""
+        if not self.client:
+            return {"error": "AI service not available"}
+        
+        # Validate input
+        if len(prompt) > 2000:
+            return {"error": "Prompt exceeds 2000 character limit"}
+        
+        try:
+            # Create system prompt for content generation
+            system_prompt = """You are a content generation expert. Create engaging, informative content based on user prompts. 
+            Follow these rules:
+            - Keep content under 20000 tokens
+            - Use clear, professional language
+            - Structure content with headings and paragraphs
+            - Include relevant information and examples
+            - Make content engaging and readable"""
+            
+            user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
+            
+            response = await self.client.chat.completions.acreate(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=20000,
+                temperature=0.7
+            )
+            
+            generated_content = response.choices[0].message.content
+            
+            # Generate images if requested
+            images = []
+            if include_images:
+                images = await self._generate_images_for_content(prompt, generated_content)
+            
+            return {
+                "content": generated_content,
+                "images": images,
+                "token_count": response.usage.total_tokens,
+                "prompt_length": len(prompt)
+            }
+            
+        except Exception as e:
+            return {"error": f"Content generation failed: {str(e)}"}
+    
+    async def _generate_images_for_content(self, prompt: str, content: str) -> List[str]:
+        """Generate images using free DALL-E API"""
+        try:
+            # Create image prompt based on content
+            image_prompt = f"Create a relevant illustration for: {prompt[:100]}"
+            
+            response = await self.client.images.generate(
+                model="dall-e-2",
+                prompt=image_prompt,
+                size="512x512",
+                quality="standard",
+                n=1,
+            )
+            
+            return [response.data[0].url]
+            
+        except Exception as e:
+            return []
+    
     def _create_suggestion_prompt(self, content: str, qr_type: str, context: Optional[str] = None) -> str:
         """Create prompt for AI suggestions"""
         base_prompt = f"""
