@@ -32,7 +32,10 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     if not email:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user = db.query(User).filter(User.email == email).first()
-    if not user or not user.is_active:
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    # Treat None as active (for backward compatibility)
+    if user.is_active is False:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
     return user
 
@@ -71,10 +74,16 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email not present in Google token")
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        user = User(email=email, provider="google")
+        user = User(email=email, provider="google", is_active=True)
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        # Ensure existing user is active
+        if not user.is_active:
+            user.is_active = True
+            db.commit()
+            db.refresh(user)
     token = create_access_token(email)
     return TokenResponse(access_token=token)
 
