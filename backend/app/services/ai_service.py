@@ -28,7 +28,7 @@ class AIService:
             )
             user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
             print(user_prompt)
-            response = await client.chat.completions.create(
+            response = await self.client.chat.completions.create(
             model="gpt-5-nano",
             messages=[
                 {"role": "system", "content": system_prompt},
