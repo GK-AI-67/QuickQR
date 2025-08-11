@@ -204,28 +204,28 @@ const AboutPage = () => {
               <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <User className="w-10 h-10 text-primary-600" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Hardik Kothari</h3>
-              <p className="text-gray-600">Full Stack Developer & Creator of QuickQR</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Gaurang Kothari (X Google Employee)</h3>
+              <p className="text-gray-600">Founder of QuickQR</p>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-center space-x-3">
                 <Mail className="w-5 h-5 text-primary-600" />
                 <a 
-                  href="mailto:hardikkothari27@gmail.com" 
+                  href="mailto:gaurangkothariai@gmail.com" 
                   className="text-gray-700 hover:text-primary-600 transition-colors duration-200"
                 >
-                  hardikkothari27@gmail.com
+                  gaurangkothariai@gmail.com
                 </a>
               </div>
               
               <div className="flex items-center justify-center space-x-3">
                 <Phone className="w-5 h-5 text-primary-600" />
                 <a 
-                  href="tel:+919714022130" 
+                  href="tel:+917698339353" 
                   className="text-gray-700 hover:text-primary-600 transition-colors duration-200"
                 >
-                  +91 9714022130
+                  +91 7698339353
                 </a>
               </div>
             </div>
