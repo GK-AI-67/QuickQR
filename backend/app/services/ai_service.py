@@ -28,15 +28,42 @@ class AIService:
             )
             user_prompt = f"Generate comprehensive content based on this prompt: {prompt}"
             print(user_prompt)
-            response = await self.client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=2000,  # careful: 20000 is above the limit
-            temperature=0.7
-        )
+        #     response = await self.client.chat.completions.create(
+        #     model="gpt-3.5-turbo",
+        #     messages=[
+        #         {"role": "system", "content": system_prompt},
+        #         {"role": "user", "content": user_prompt}
+        #     ],
+        #     max_tokens=2000,  # careful: 20000 is above the limit
+        #     temperature=0.7
+        # )
+
+        #     print(response)
+        #     generated_content = response.choices[0].message.content
+        #     images = []
+            import requests
+
+            api_key = ttings.GROK_API_KEY
+
+            url = "https://api.groq.com/openai/v1/chat/completions"
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+
+            data = {
+                "model": "llama3-8b-8192",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                "max_tokens": 2000
+            }
+
+            response = requests.post(url, headers=headers, json=data)
+            print(response.json()["choices"][0]["message"]["content"])
+
             print(response)
             generated_content = response.choices[0].message.content
             images = []
