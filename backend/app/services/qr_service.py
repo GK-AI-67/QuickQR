@@ -31,11 +31,12 @@ class QRCodeService:
                 # Format content based on QR type
                 formatted_content = self._format_content(request.content, request.qr_type)
             
-            # Create QR code
+            # Create QR code with fixed box_size (1-10 range for qrcode library)
+            # Then resize to requested size
             qr = qrcode.QRCode(
                 version=1,
                 error_correction=self._get_error_correction(request.error_correction),
-                box_size=request.size,
+                box_size=min(request.size // 50, 10),  # Ensure box_size is reasonable
                 border=request.border,
             )
             
@@ -47,6 +48,10 @@ class QRCodeService:
                 fill_color=request.foreground_color,
                 back_color=request.background_color
             )
+            
+            # Resize to requested size if different
+            if request.size > 0 and (img.width != request.size or img.height != request.size):
+                img = img.resize((request.size, request.size), Image.Resampling.LANCZOS)
             
             # Add logo if provided
             if request.logo_url:
