@@ -10,6 +10,7 @@ A modern, AI-enhanced QR code generator application with a beautiful user interf
 - **Customization**: Colors, logos, and styling options
 - **Real-time Preview**: Instant QR code generation and preview
 - **Export Options**: PNG, SVG, and PDF formats
+- **PDF Designer**: Create printable, branded PDFs with logo, header, footer, and AI-assisted sections
 - **User-Friendly**: Intuitive interface for all users
 - **Database Storage**: All designs and content stored securely
 - **Analytics**: Track QR code usage and scans
@@ -103,6 +104,14 @@ npm run dev
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
 
+### PDF Designer (New)
+- Navigate to `http://localhost:5173/pdf-designer` (also available from the header as "PDF Designer")
+- Upload or paste a logo URL, set header and footer
+- Add text boxes; for each, type a prompt and click "Generate with AI" to fill content
+- Click "View PDF" to preview in a new tab or "Download PDF" to save
+
+Under the hood, the page renders an A4 preview and uses `html2canvas` + `jsPDF` to produce a PDF. AI content uses the existing `/ai/generate-content` backend endpoint.
+
 ## 🗄️ Database Management
 
 The application uses SQLite for storing user designs and content. For detailed database setup and management instructions, see [DATABASE.md](backend/DATABASE.md).
@@ -134,6 +143,7 @@ cp quickqr.db quickqr_backup_$(date +%Y%m%d_%H%M%S).db
 - **Smart Content Suggestions**: AI-powered content recommendations
 - **URL Optimization**: Intelligent URL shortening and validation
 - **Content Analysis**: AI analysis of QR code content
+- **AI PDF Sections**: Use prompts to generate section content in the new PDF Designer
 - **Usage Analytics**: Smart insights on QR code usage
 
 ### Customization Options

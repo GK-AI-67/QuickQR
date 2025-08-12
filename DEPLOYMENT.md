@@ -44,7 +44,7 @@ Add these in Render dashboard:
 1. **Create Static Site:**
    - New + → Static Site
    - Connect GitHub repo
-   - Build Command: `cd frontend && npm install && npm run build`
+    - Build Command: `cd frontend && npm install && npm run build`
    - Publish Directory: `frontend/dist`
 
 2. **Add Environment Variable:**
@@ -59,3 +59,8 @@ Your app will be live at:
 - Check Render logs for errors
 - Ensure all environment variables are set
 - Database connection issues? Check `DATABASE_URL` format 
+
+## **Notes About New PDF Designer**
+- New dependency: `jspdf` added to `frontend/package.json`
+- Uses existing `html2canvas` for rendering the preview into PDF
+- No backend changes required for PDF; AI content uses the existing `/ai/generate-content` endpoint

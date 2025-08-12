@@ -15,6 +15,7 @@ import HomePage from './pages/HomePage'
 import GeneratorPage from './pages/GeneratorPage'
 import AboutPage from './pages/AboutPage'
 import AIContentPage from './pages/AIContentPage'
+import PDFDesignerPage from './pages/PDFDesignerPage'
 
 function App() {
   return (
@@ -58,6 +59,17 @@ function App() {
               transition={{ duration: 0.5 }}
             >
               <AIContentPage />
+            </motion.div>
+          } />
+          <Route path="/pdf-designer" element={
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <RequireAuth>
+                <PDFDesignerPage />
+              </RequireAuth>
             </motion.div>
           } />
           <Route path="/about" element={
