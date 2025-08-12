@@ -292,7 +292,7 @@ async def view_content(qr_id: str, db: Session = Depends(get_db), request: Reque
     """)
 
 @content_router.post("/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), user=Depends(get_current_user)):
+async def upload_pdf(file: UploadFile = File(...)):
     """Upload a PDF to the uploads directory and return its public path"""
     try:
         if not file:

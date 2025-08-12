@@ -97,8 +97,18 @@ export default function PDFDesignerPage() {
 
   const createQRForPdf = async () => {
     if (!previewRef.current) return
+    
+    // Check if user is authenticated
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      alert('Please login first to create QR codes')
+      return
+    }
+    
     setIsBuilding(true)
     try {
+      console.log('User token:', token ? 'Present' : 'Missing')
+      
       // Render preview to PDF Blob
       const canvas = await html2canvas(previewRef.current, { scale: 2, backgroundColor: '#ffffff' })
       const pdf = new jsPDF('p', 'pt', 'a4')
@@ -112,13 +122,18 @@ export default function PDFDesignerPage() {
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight)
       const blob = pdf.output('blob') as Blob
 
+      console.log('PDF created, size:', blob.size, 'bytes')
+
       // Upload PDF to backend
       const file = new File([blob], 'designed.pdf', { type: 'application/pdf' })
+      console.log('Uploading PDF file...')
       const { path } = await contentAPI.uploadPDF(file)
+      console.log('PDF uploaded successfully, path:', path)
       
       // Create proper backend URL for PDF viewing
       const backendBaseUrl = api.defaults.baseURL ? api.defaults.baseURL.replace('/api/v1', '') : window.location.origin
       const pdfUrl = `${backendBaseUrl}${path}`
+      console.log('PDF URL:', pdfUrl)
       setPdfUrl(pdfUrl)
 
       // Create QR pointing to the uploaded PDF
@@ -131,11 +146,18 @@ export default function PDFDesignerPage() {
         foreground_color: '#000000',
         background_color: '#FFFFFF',
       }
+      console.log('Generating QR with request:', request)
       const qr = await qrCodeAPI.generateQR(request)
+      console.log('QR response:', qr)
+      
       if (qr.qr_code_data) {
+        console.log('Setting generated QR')
         setGeneratedQR(qr.qr_code_data)
+      } else {
+        console.error('No QR data in response:', qr)
+        alert('Failed to generate QR code')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error creating QR for PDF:', e)
       alert(`Failed to create QR: ${e?.message || 'Unknown error'}`)
     } finally {
