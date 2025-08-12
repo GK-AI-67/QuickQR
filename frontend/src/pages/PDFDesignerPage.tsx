@@ -197,14 +197,15 @@ export default function PDFDesignerPage() {
         <button onClick={createQRForPdf} disabled={isBuilding} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">Create QR for PDF</button>
       </div>
 
-      {/* Preview */}
+      {/* Preview (scrollable container) */}
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="font-semibold mb-3">Preview</h2>
-        <div
-          ref={previewRef}
-          className="mx-auto border relative"
-          style={{ width: A4_WIDTH_PX, height: A4_HEIGHT_PX, background: '#ffffff' }}
-        >
+        <div className="overflow-auto" style={{ maxHeight: '75vh' }}>
+          <div
+            ref={previewRef}
+            className="mx-auto border relative"
+            style={{ width: A4_WIDTH_PX, height: A4_HEIGHT_PX, background: '#ffffff' }}
+          >
           {/* Header */}
           <div className="flex items-center gap-3 px-8 pt-8">
             {logoDataUrl && (
@@ -215,7 +216,7 @@ export default function PDFDesignerPage() {
           </div>
 
           {/* Content */}
-          <div className="px-8 mt-6 space-y-4">
+          <div className="px-8 mt-6 space-y-4 pb-32">
             {boxes.map((b: DesignerTextBox) => (
               <div key={b.id} className="border rounded p-4">
                 <div className="font-semibold mb-2">{b.title}</div>
@@ -225,8 +226,9 @@ export default function PDFDesignerPage() {
           </div>
 
           {/* Footer */}
-          <div className="absolute bottom-0 left-0 right-0 px-8 py-6 text-sm text-gray-600 border-t">
+          <div className="absolute bottom-0 left-0 right-0 px-8 py-6 text-sm text-gray-600 border-t bg-white">
             {footerText}
+          </div>
           </div>
         </div>
       </div>
