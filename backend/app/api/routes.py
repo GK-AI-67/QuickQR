@@ -13,6 +13,8 @@ from app.services.content_service import ContentService
 from app.services.database_service import DatabaseService
 from app.core.database import get_db
 from app.api.auth import get_current_user
+import os
+from datetime import datetime
 
 # Create routers
 qr_router = APIRouter()
@@ -288,6 +290,34 @@ async def view_content(qr_id: str, db: Session = Depends(get_db), request: Reque
     </body>
     </html>
     """)
+
+@content_router.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...), user=Depends(get_current_user)):
+    """Upload a PDF to the uploads directory and return its public path"""
+    try:
+        if not file:
+            raise HTTPException(status_code=400, detail="File is required")
+        if file.content_type not in ("application/pdf",):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+
+        os.makedirs("uploads", exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        safe_name = file.filename or "document.pdf"
+        base, ext = os.path.splitext(safe_name)
+        if ext.lower() != ".pdf":
+            ext = ".pdf"
+        filename = f"{base}_{timestamp}.pdf"
+        filepath = os.path.join("uploads", filename)
+
+        data = await file.read()
+        with open(filepath, "wb") as f:
+            f.write(data)
+
+        return {"path": f"/uploads/{filename}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
 
 @content_router.get("/content/{qr_id}")
 async def get_content_data(qr_id: str, db: Session = Depends(get_db)):

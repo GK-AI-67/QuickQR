@@ -81,6 +81,17 @@ export const aiAPI = {
   },
 }
 
+export const contentAPI = {
+  uploadPDF: async (file: File): Promise<{ path: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    const response = await api.post('/upload-pdf', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+}
+
 export const healthAPI = {
   // Check API Health
   checkHealth: async () => {

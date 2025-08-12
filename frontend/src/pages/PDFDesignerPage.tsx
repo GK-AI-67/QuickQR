@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { aiAPI } from '../services/api'
+import api, { aiAPI, contentAPI, qrCodeAPI } from '../services/api'
+import type { QRCodeRequest, ErrorCorrectionLevel, QRCodeType } from '../types'
 
 type DesignerTextBox = {
   id: string
@@ -92,6 +93,52 @@ export default function PDFDesignerPage() {
     }
   }
 
+  const createQRForPdf = async () => {
+    if (!previewRef.current) return
+    setIsBuilding(true)
+    try {
+      // Render preview to PDF Blob
+      const canvas = await html2canvas(previewRef.current, { scale: 2, backgroundColor: '#ffffff' })
+      const pdf = new jsPDF('p', 'pt', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const ratio = Math.min(pageWidth / canvas.width, pageHeight / canvas.height)
+      const imgWidth = canvas.width * ratio
+      const imgHeight = canvas.height * ratio
+      const x = (pageWidth - imgWidth) / 2
+      const y = (pageHeight - imgHeight) / 2
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight)
+      const blob = pdf.output('blob') as Blob
+
+      // Upload PDF to backend
+      const file = new File([blob], 'designed.pdf', { type: 'application/pdf' })
+      const { path } = await contentAPI.uploadPDF(file)
+
+      // Create QR pointing to the uploaded PDF
+      const request: QRCodeRequest = {
+        content: (api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/v1$/, '') : window.location.origin) + path,
+        qr_type: 'url' as QRCodeType,
+        size: 512,
+        error_correction: 'M' as ErrorCorrectionLevel,
+        border: 4,
+        foreground_color: '#000000',
+        background_color: '#FFFFFF',
+      }
+      const qr = await qrCodeAPI.generateQR(request)
+      if (qr.qr_code_data) {
+        const win = window.open('', '_blank')
+        if (win) {
+          win.document.write(`<html><head><title>PDF QR</title></head><body style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f5f5f5"><img alt="QR" src="${qr.qr_code_data}" style="max-width:90vw;max-height:90vh;border:1px solid #ddd;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)"/></body></html>`)
+          win.document.close()
+        }
+      }
+    } catch (e) {
+      // no-op UI error toast in this minimal change
+    } finally {
+      setIsBuilding(false)
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">PDF Designer</h1>
@@ -147,6 +194,7 @@ export default function PDFDesignerPage() {
       <div className="flex gap-3 mb-6">
         <button onClick={() => buildPdf(true)} disabled={isBuilding} className="px-4 py-2 bg-emerald-600 text-white rounded disabled:opacity-50">View PDF</button>
         <button onClick={() => buildPdf(false)} disabled={isBuilding} className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50">Download PDF</button>
+        <button onClick={createQRForPdf} disabled={isBuilding} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">Create QR for PDF</button>
       </div>
 
       {/* Preview */}
