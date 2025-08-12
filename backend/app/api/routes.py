@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Request
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, List
@@ -318,6 +318,35 @@ async def upload_pdf(file: UploadFile = File(...), user=Depends(get_current_user
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
+
+@content_router.get("/pdf/{filename}")
+async def serve_pdf(filename: str, request: Request):
+    """Serve PDF files with proper headers"""
+    try:
+        # Security: prevent directory traversal
+        if ".." in filename or "/" in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        file_path = os.path.join("uploads", filename)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="PDF not found")
+        
+        # Read file and return with proper headers
+        with open(file_path, "rb") as f:
+            content = f.read()
+        
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"inline; filename={filename}",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to serve PDF: {str(e)}")
 
 @content_router.get("/content/{qr_id}")
 async def get_content_data(qr_id: str, db: Session = Depends(get_db)):

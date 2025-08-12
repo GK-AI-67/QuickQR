@@ -115,12 +115,15 @@ export default function PDFDesignerPage() {
       // Upload PDF to backend
       const file = new File([blob], 'designed.pdf', { type: 'application/pdf' })
       const { path } = await contentAPI.uploadPDF(file)
-      const fullUrl = (api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/v1$/, '') : window.location.origin) + path
-      setPdfUrl(fullUrl)
+      
+      // Create proper backend URL for PDF viewing
+      const backendBaseUrl = api.defaults.baseURL ? api.defaults.baseURL.replace('/api/v1', '') : window.location.origin
+      const pdfUrl = `${backendBaseUrl}${path}`
+      setPdfUrl(pdfUrl)
 
       // Create QR pointing to the uploaded PDF
       const request: QRCodeRequest = {
-        content: fullUrl,
+        content: pdfUrl,
         qr_type: 'url' as QRCodeType,
         size: 512,
         error_correction: 'M' as ErrorCorrectionLevel,
@@ -133,7 +136,8 @@ export default function PDFDesignerPage() {
         setGeneratedQR(qr.qr_code_data)
       }
     } catch (e) {
-      // no-op UI error toast in this minimal change
+      console.error('Error creating QR for PDF:', e)
+      alert(`Failed to create QR: ${e?.message || 'Unknown error'}`)
     } finally {
       setIsBuilding(false)
     }
