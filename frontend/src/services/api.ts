@@ -32,7 +32,12 @@ api.interceptors.response.use(
 export const qrCodeAPI = {
   // Generate QR Code
   generateQR: async (request: QRCodeRequest): Promise<QRCodeResponse> => {
-    const response = await api.post('/qr/generate', request)
+    const token = localStorage.getItem('auth_token')
+    const response = await api.post('/qr/generate', request, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : ''
+      }
+    })
     return response.data
   },
 
@@ -85,8 +90,15 @@ export const contentAPI = {
   uploadPDF: async (file: File): Promise<{ path: string }> => {
     const form = new FormData()
     form.append('file', file)
+    
+    // Get auth token from localStorage
+    const token = localStorage.getItem('auth_token')
+    
     const response = await api.post('/upload-pdf', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
     })
     return response.data
   },

@@ -23,7 +23,7 @@ class ErrorCorrectionLevel(str, Enum):
 class QRCodeRequest(BaseModel):
     content: str = Field(..., description="Content for the QR code")
     qr_type: QRCodeType = Field(..., description="Type of QR code")
-    size: int = Field(10, ge=1, le=40, description="QR code size")
+    size: int = Field(10, ge=1, le=1024, description="QR code size")
     error_correction: ErrorCorrectionLevel = Field(ErrorCorrectionLevel.M, description="Error correction level")
     border: int = Field(4, ge=0, le=10, description="Border width")
     foreground_color: str = Field("#000000", description="Foreground color")
