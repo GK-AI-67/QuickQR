@@ -18,6 +18,8 @@ const A4_HEIGHT_PX = 1123 // ~297mm at ~96 DPI
 
 export default function PDFDesignerPage() {
   const previewRef = useRef<HTMLDivElement | null>(null)
+  const [generatedQR, setGeneratedQR] = useState<string | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null)
   const [logoUrlInput, setLogoUrlInput] = useState('')
   const [headerText, setHeaderText] = useState('')
@@ -113,10 +115,12 @@ export default function PDFDesignerPage() {
       // Upload PDF to backend
       const file = new File([blob], 'designed.pdf', { type: 'application/pdf' })
       const { path } = await contentAPI.uploadPDF(file)
+      const fullUrl = (api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/v1$/, '') : window.location.origin) + path
+      setPdfUrl(fullUrl)
 
       // Create QR pointing to the uploaded PDF
       const request: QRCodeRequest = {
-        content: (api.defaults.baseURL ? api.defaults.baseURL.replace(/\/api\/v1$/, '') : window.location.origin) + path,
+        content: fullUrl,
         qr_type: 'url' as QRCodeType,
         size: 512,
         error_correction: 'M' as ErrorCorrectionLevel,
@@ -126,17 +130,23 @@ export default function PDFDesignerPage() {
       }
       const qr = await qrCodeAPI.generateQR(request)
       if (qr.qr_code_data) {
-        const win = window.open('', '_blank')
-        if (win) {
-          win.document.write(`<html><head><title>PDF QR</title></head><body style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f5f5f5"><img alt="QR" src="${qr.qr_code_data}" style="max-width:90vw;max-height:90vh;border:1px solid #ddd;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)"/></body></html>`)
-          win.document.close()
-        }
+        setGeneratedQR(qr.qr_code_data)
       }
     } catch (e) {
       // no-op UI error toast in this minimal change
     } finally {
       setIsBuilding(false)
     }
+  }
+
+  const downloadQR = () => {
+    if (!generatedQR) return
+    const link = document.createElement('a')
+    link.href = generatedQR
+    link.download = 'pdf-qr-code.png'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   return (
@@ -197,6 +207,38 @@ export default function PDFDesignerPage() {
         <button onClick={createQRForPdf} disabled={isBuilding} className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50">Create QR for PDF</button>
       </div>
 
+      {/* Generated QR Code Section */}
+      {generatedQR && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <h2 className="font-semibold mb-3">Generated QR Code</h2>
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <div className="flex-shrink-0">
+              <img src={generatedQR} alt="PDF QR Code" className="w-64 h-64 border rounded-lg shadow-md" />
+            </div>
+            <div className="flex-1 space-y-4">
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">QR Code Details</h3>
+                <p className="text-sm text-gray-600 mb-2">This QR code links to your generated PDF document.</p>
+                {pdfUrl && (
+                  <div className="bg-gray-50 p-3 rounded border">
+                    <p className="text-xs text-gray-500 mb-1">PDF URL:</p>
+                    <p className="text-sm font-mono break-all">{pdfUrl}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={downloadQR} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                  Download QR Code
+                </button>
+                <a href={pdfUrl || '#'} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                  Open PDF
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Preview (scrollable container) */}
       <div className="bg-white rounded-lg shadow p-4">
         <h2 className="font-semibold mb-3">Preview</h2>
@@ -206,29 +248,29 @@ export default function PDFDesignerPage() {
             className="mx-auto border relative"
             style={{ width: A4_WIDTH_PX, height: A4_HEIGHT_PX, background: '#ffffff' }}
           >
-          {/* Header */}
-          <div className="flex items-center gap-3 px-8 pt-8">
-            {logoDataUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoDataUrl} alt="Logo" className="h-48 w-48 object-contain" />
-            )}
-            <div className="text-3xl font-bold">{headerText}</div>
-          </div>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-8 pt-8">
+              {logoDataUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoDataUrl} alt="Logo" className="h-48 w-48 object-contain" />
+              )}
+              <div className="text-3xl font-bold">{headerText}</div>
+            </div>
 
-          {/* Content */}
-          <div className="px-8 mt-6 space-y-4 pb-32">
-            {boxes.map((b: DesignerTextBox) => (
-              <div key={b.id} className="border rounded p-4">
-                <div className="font-semibold mb-2">{b.title}</div>
-                <div className="whitespace-pre-wrap leading-6 text-gray-800">{b.content}</div>
-              </div>
-            ))}
-          </div>
+            {/* Content */}
+            <div className="px-8 mt-6 space-y-4 pb-40">
+              {boxes.map((b: DesignerTextBox) => (
+                <div key={b.id} className="border rounded p-4">
+                  <div className="font-semibold mb-2">{b.title}</div>
+                  <div className="whitespace-pre-wrap leading-6 text-gray-800">{b.content}</div>
+                </div>
+              ))}
+            </div>
 
-          {/* Footer */}
-          <div className="absolute bottom-0 left-0 right-0 px-8 py-6 text-sm text-gray-600 border-t bg-white">
-            {footerText}
-          </div>
+            {/* Footer */}
+            <div className="absolute bottom-0 left-0 right-0 px-8 py-6 text-sm text-gray-600 border-t bg-white shadow-sm">
+              {footerText}
+            </div>
           </div>
         </div>
       </div>
