@@ -19,17 +19,18 @@ class ContentService:
                           title: Optional[str] = None,
                           description: Optional[str] = None,
                           image_file: Optional[UploadFile] = None,
-                          db: Session = None) -> str:
-        """Save content and return QR ID"""
+                          db: Session = None,
+                          qr_id: Optional[str] = None) -> str:
+        """Save content and return QR ID (uses provided qr_id when given)."""
         if not db:
             from app.core.database import SessionLocal
             db = SessionLocal()
             try:
-                return await self._save_content_internal(content, qr_type, title, description, image_file, db)
+                return await self._save_content_internal(content, qr_type, title, description, image_file, db, qr_id)
             finally:
                 db.close()
         else:
-            return await self._save_content_internal(content, qr_type, title, description, image_file, db)
+            return await self._save_content_internal(content, qr_type, title, description, image_file, db, qr_id)
     
     async def _save_content_internal(self, 
                                    content: str, 
@@ -37,9 +38,10 @@ class ContentService:
                                    title: Optional[str] = None,
                                    description: Optional[str] = None,
                                    image_file: Optional[UploadFile] = None,
-                                   db: Session = None) -> str:
+                                   db: Session = None,
+                                   qr_id: Optional[str] = None) -> str:
         """Internal method to save content with database session"""
-        qr_id = str(uuid.uuid4())
+        qr_id = qr_id or str(uuid.uuid4())
         
         # Determine content type and handle image creation
         content_type = "text"
@@ -72,49 +74,6 @@ class ContentService:
             image_filename=image_filename,
             image_path=image_path
         )
-        
-        return qr_id
-    
-    async def save_content(self, 
-                          content: str, 
-                          qr_type: QRCodeType,
-                          title: Optional[str] = None,
-                          description: Optional[str] = None,
-                          image_file: Optional[UploadFile] = None) -> str:
-        """Save content and return QR ID"""
-        qr_id = str(uuid.uuid4())
-        
-        # Determine content type
-        content_type = "text"
-        image_url = None
-        
-        if image_file:
-            # Save image
-            image_filename = f"{qr_id}_{image_file.filename}"
-            image_path = os.path.join(self.images_dir, image_filename)
-            
-            async with aiofiles.open(image_path, 'wb') as f:
-                content_data = await image_file.read()
-                await f.write(content_data)
-            
-            image_url = f"/content/images/{image_filename}"
-            content_type = "text+image" if content.strip() else "image"
-        
-        # Create content display object
-        content_display = QRContentDisplay(
-            qr_id=qr_id,
-            title=title,
-            description=description,
-            content=content,
-            content_type=content_type,
-            image_url=image_url,
-            created_at=datetime.now(),
-            qr_type=qr_type
-        )
-        
-        # Save to data file
-        self.content_data[qr_id] = content_display.dict()
-        self._save_content_data()
         
         return qr_id
     

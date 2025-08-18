@@ -58,24 +58,22 @@ async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db)
             raise HTTPException(status_code=400, detail="Content cannot be empty")
         
         # Save QR design to database
-        qr_design = db_service.create_qr_design(db, request)
+        qr_design = db_service.create_qr_design(db, request.dict())
         qr_id = qr_design.id
-        
-        # For content type, save content data
+
+        # For content type, persist content data alongside design to keep ids aligned
+        image_url = None
         if request.qr_type == "content":
             await content_service.save_content(
                 content=request.content,
                 qr_type=request.qr_type,
                 title=request.title,
                 description=request.description,
-                db=db
+                db=db,
+                qr_id=qr_id
             )
-            
-            # Get the content data to find image URL
             content_data = content_service.get_content(qr_id, db)
             image_url = content_data.image_url if content_data else None
-        else:
-            image_url = None
         
         # Generate QR code
         result = qr_service.generate_qr_code(request, qr_id, image_url)
@@ -97,7 +95,7 @@ async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db)
         raise HTTPException(status_code=500, detail=f"Failed to generate QR code: {str(e)}")
 
 @qr_router.post("/generate-pdf-link", response_model=QRCodeResponse)
-async def generate_pdf_link_qr(request: PdfLinkQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
+async def generate_pdf_link_qr(request: PdfLinkQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user), http_request: Request = None):
     """Create a QR that redirects through a view page to the PDF, capturing geolocation on scan."""
     try:
         if not request.pdf_path or not request.pdf_path.startswith("/uploads/"):
@@ -119,8 +117,9 @@ async def generate_pdf_link_qr(request: PdfLinkQRRequest, db: Session = Depends(
         # Save mapping to PDF path
         db_service.save_content_data(db, qr_design_id=qr_id, content=request.pdf_path, content_type="pdf_link")
 
-        # Build view URL that captures location then redirects to the PDF
-        view_url = f"https://quickqr-backend.onrender.com/api/v1/view/pdf/{qr_id}"
+        # Build view URL that captures location then redirects to the PDF (use current host)
+        base = str(http_request.base_url).rstrip("/") if http_request else ""
+        view_url = f"{base}/api/v1/view/pdf/{qr_id}"
 
         # Generate QR image pointing to the view URL
         qr_request = QRCodeRequest(
@@ -598,7 +597,7 @@ async def search_designs(
     ] 
 
 @qr_router.post("/generate-contact", response_model=ContactQRResponse)
-async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
+async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user), http_request: Request = None):
     """Generate a Contact QR that opens a hosted view (captures geolocation) with a fancy template."""
     try:
         # Validate required fields
@@ -639,8 +638,8 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
         db_service.save_contact_qr_data(db, contact_data)
 
         # Build hosted view URL and generate URL QR (not vCard) so we can capture location on scan
-        backend_base = "https://quickqr-backend.onrender.com"
-        view_url = f"{backend_base}/api/v1/contact-view/{qr_id}"
+        base = str(http_request.base_url).rstrip("/") if http_request else ""
+        view_url = f"{base}/api/v1/contact-view/{qr_id}"
 
         qr_request = QRCodeRequest(
             content=view_url,

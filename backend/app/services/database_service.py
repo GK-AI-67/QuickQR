@@ -205,10 +205,18 @@ class DatabaseService:
         """Save Contact QR data to database"""
         # For now, we'll store it in the content_data table with a special type
         # In a production app, you'd have a dedicated ContactQR table
+        # Serialize to JSON to preserve types (e.g., datetime)
+        import json
+        def default(o):
+            from datetime import datetime
+            if isinstance(o, datetime):
+                return o.isoformat()
+            return str(o)
+        payload = json.dumps(contact_data.dict(), default=default)
         content_data = ContentData(
             qr_design_id=contact_data.qr_id,
             content_type="contact_qr",
-            text_content=str(contact_data.dict()),
+            text_content=payload,
             image_filename=None,
             image_path=None
         )
@@ -229,10 +237,17 @@ class DatabaseService:
         
         try:
             # Parse the stored contact data
-            import ast
-            contact_dict = ast.literal_eval(content_data.text_content)
+            import json
+            from datetime import datetime
+            contact_dict = json.loads(content_data.text_content)
+            # Convert created_at back to datetime if present
+            if isinstance(contact_dict.get('created_at'), str):
+                try:
+                    contact_dict['created_at'] = datetime.fromisoformat(contact_dict['created_at'])
+                except Exception:
+                    pass
             return ContactQRDisplay(**contact_dict)
-        except:
+        except Exception:
             # Fallback: create basic contact data
             return ContactQRDisplay(
                 qr_id=qr_id,
