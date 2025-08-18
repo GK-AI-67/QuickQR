@@ -64,6 +64,17 @@ function App() {
               </RequireAuth>
             </motion.div>
           } />
+          <Route path="/lost-found" element={
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <RequireAuth>
+                <ContactQRPage />
+              </RequireAuth>
+            </motion.div>
+          } />
           <Route path="/ai-content" element={
             <motion.div
               initial={{ opacity: 0, y: 20 }}

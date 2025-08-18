@@ -33,10 +33,7 @@ export default function LoginPage() {
         .then((r: any) => {
           console.log('Google login successful', r.data)
           login(r.data.access_token)
-          console.log('Navigating to generator...')
-          setTimeout(() => {
-            navigate('/generator')
-          }, 100)
+          // navigation will occur in the effect below when token becomes available
         })
         .catch((error: any) => {
           console.error('Google login failed:', error)
@@ -83,6 +80,14 @@ export default function LoginPage() {
       }
     }
   }, [login, navigate])
+
+  // Redirect after auth token is set (covers Google sign-in timing)
+  const { token } = useAuth()
+  useEffect(() => {
+    if (token) {
+      navigate('/generator', { replace: true })
+    }
+  }, [token, navigate])
 
   return (
     <div className="max-w-md mx-auto p-6">

@@ -12,7 +12,7 @@ const Header = () => {
   const navigation = [
     { name: 'Home', href: '/' },
     { name: 'Generator', href: '/generator' },
-    { name: 'Contact QR', href: '/contact-qr' },
+    { name: 'Lost & Found QR', href: '/contact-qr' },
     { name: 'AI Content', href: '/ai-content' },
     { name: 'PDF Designer', href: '/pdf-designer' },
     { name: 'About', href: '/about' },
