@@ -40,7 +40,7 @@ const ContactQRPage = () => {
       company: { value: '', show: false },
       website: { value: '', show: false },
       send_location_on_scan: true,
-      size: 10,
+      size: 512,
       error_correction: 'M',
       border: 4,
       foreground_color: '#000000',
@@ -394,10 +394,10 @@ const ContactQRPage = () => {
                         {...register('size')}
                         className="input"
                       >
-                        <option value={8}>Small (8)</option>
-                        <option value={10}>Medium (10)</option>
-                        <option value={12}>Large (12)</option>
-                        <option value={16}>Extra Large (16)</option>
+                        <option value={256}>256 px</option>
+                        <option value={384}>384 px</option>
+                        <option value={512}>512 px (Recommended)</option>
+                        <option value={768}>768 px (Extra Large)</option>
                       </select>
                     </div>
                     <div>
