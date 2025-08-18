@@ -40,6 +40,15 @@ class ContentGenerationRequest(BaseModel):
     prompt: str
     include_images: bool = False
 
+class PdfLinkQRRequest(BaseModel):
+    pdf_path: str
+    size: int = 512
+    error_correction: str = "M"
+    border: int = 4
+    foreground_color: str = "#000000"
+    background_color: str = "#FFFFFF"
+    logo_url: Optional[str] = None
+
 @qr_router.post("/generate", response_model=QRCodeResponse)
 async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
     """Generate a QR code with the specified parameters"""
@@ -86,6 +95,60 @@ async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db)
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QR code: {str(e)}")
+
+@qr_router.post("/generate-pdf-link", response_model=QRCodeResponse)
+async def generate_pdf_link_qr(request: PdfLinkQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Create a QR that redirects through a view page to the PDF, capturing geolocation on scan."""
+    try:
+        if not request.pdf_path or not request.pdf_path.startswith("/uploads/"):
+            raise HTTPException(status_code=400, detail="Invalid pdf_path")
+
+        # Create a QR design record
+        qr_design = db_service.create_qr_design(db, {
+            "content": request.pdf_path,
+            "qr_type": "url",
+            "size": request.size,
+            "error_correction": request.error_correction,
+            "border": request.border,
+            "foreground_color": request.foreground_color,
+            "background_color": request.background_color,
+            "logo_url": request.logo_url,
+        })
+        qr_id = qr_design.id
+
+        # Save mapping to PDF path
+        db_service.save_content_data(db, qr_design_id=qr_id, content=request.pdf_path, content_type="pdf_link")
+
+        # Build view URL that captures location then redirects to the PDF
+        view_url = f"https://quickqr-backend.onrender.com/api/v1/view/pdf/{qr_id}"
+
+        # Generate QR image pointing to the view URL
+        qr_request = QRCodeRequest(
+            content=view_url,
+            qr_type="url",
+            size=request.size,
+            error_correction=request.error_correction,  # type: ignore
+            border=request.border,
+            foreground_color=request.foreground_color,
+            background_color=request.background_color,
+            logo_url=request.logo_url,
+        )
+        result = qr_service.generate_qr_code(qr_request, qr_id)
+
+        if result["success"]:
+            return QRCodeResponse(
+                success=True,
+                qr_code_data=result["qr_code_data"],
+                qr_id=qr_id,
+                view_url=view_url,
+                metadata=result.get("metadata")
+            )
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF link QR: {str(e)}")
 
 @qr_router.post("/generate-with-image", response_model=QRCodeResponse)
 async def generate_qr_code_with_image(
@@ -356,6 +419,67 @@ async def serve_pdf(filename: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to serve PDF: {str(e)}")
 
+@content_router.get("/view/pdf/{qr_id}")
+async def view_pdf_with_geo(qr_id: str, request: Request, db: Session = Depends(get_db)):
+    """Intermediate HTML view that captures geolocation then redirects to the actual PDF."""
+    # Fetch mapping
+    content = db_service.get_content_data(db, qr_id)
+    if not content or content.content_type != "pdf_link" or not content.text_content:
+        raise HTTPException(status_code=404, detail="PDF mapping not found")
+
+    pdf_path = content.text_content
+    backend_base = "https://quickqr-backend.onrender.com"
+    pdf_url = f"{backend_base}{pdf_path}"
+
+    # Record basic usage first
+    db_service.record_qr_usage(
+        db=db,
+        qr_design_id=qr_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        referrer=request.headers.get("referer")
+    )
+
+    # Render page that posts geolocation then redirects to PDF
+    return HTMLResponse(content=f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset='utf-8'>
+      <meta name='viewport' content='width=device-width, initial-scale=1'>
+      <title>Opening PDF…</title>
+      <style>
+        body {{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; background:#f8fafc; }}
+        .card {{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:24px; width:92%; max-width:420px; box-shadow:0 8px 24px rgba(0,0,0,0.08); text-align:center; }}
+        .muted {{ color:#6b7280; font-size:14px; margin-top:8px; }}
+      </style>
+    </head>
+    <body>
+      <div class='card'>
+        <div>Preparing your document…</div>
+        <div class='muted'>We may ask for location to help the owner recover lost items.</div>
+      </div>
+      <script>
+        (function() {{
+          var sent = false;
+          function go() {{ if (!sent) window.location.replace('{pdf_url}'); }}
+          try {{
+            if (!navigator.geolocation) return go();
+            navigator.geolocation.getCurrentPosition(function(p) {{
+              sent = true;
+              fetch('/api/v1/scan/location', {{
+                method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ qr_id: '{qr_id}', lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }})
+              }}).finally(go);
+            }}, function() {{ go(); }}, {{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }});
+          }} catch(e) {{ go(); }}
+          setTimeout(go, 5000);
+        }})();
+      </script>
+    </body>
+    </html>
+    """)
+
 @content_router.get("/content/{qr_id}")
 async def get_content_data(qr_id: str, db: Session = Depends(get_db)):
     """Get content data by QR ID (API endpoint)"""
@@ -475,7 +599,7 @@ async def search_designs(
 
 @qr_router.post("/generate-contact", response_model=ContactQRResponse)
 async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Generate a Contact QR code with flag support"""
+    """Generate a Contact QR that opens a hosted view (captures geolocation) with a fancy template."""
     try:
         # Validate required fields
         if not request.full_name.value.strip():
@@ -484,7 +608,7 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
             raise HTTPException(status_code=400, detail="Phone number is required")
         if not request.address.value.strip():
             raise HTTPException(status_code=400, detail="Address is required")
-        
+
         # Save QR design to database
         qr_design = db_service.create_qr_design(db, {
             "content": f"Contact QR: {request.full_name.value}",
@@ -497,7 +621,7 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
             "logo_url": request.logo_url
         })
         qr_id = qr_design.id
-        
+
         # Save contact data to database
         contact_data = ContactQRDisplay(
             qr_id=qr_id,
@@ -511,24 +635,36 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
             created_at=datetime.utcnow(),
             qr_type="contact_qr"
         )
-        
-        # Save to database (you'll need to implement this in your database service)
+
         db_service.save_contact_qr_data(db, contact_data)
-        
-        # Generate QR code
-        result = qr_service.generate_contact_qr_code(request, qr_id)
-        
+
+        # Build hosted view URL and generate URL QR (not vCard) so we can capture location on scan
+        backend_base = "https://quickqr-backend.onrender.com"
+        view_url = f"{backend_base}/api/v1/contact-view/{qr_id}"
+
+        qr_request = QRCodeRequest(
+            content=view_url,
+            qr_type="url",
+            size=request.size,
+            error_correction=request.error_correction,  # type: ignore
+            border=request.border,
+            foreground_color=request.foreground_color,
+            background_color=request.background_color,
+            logo_url=request.logo_url,
+        )
+        result = qr_service.generate_qr_code(qr_request, qr_id)
+
         if result["success"]:
             return ContactQRResponse(
                 success=True,
                 qr_code_data=result["qr_code_data"],
                 qr_id=qr_id,
-                view_url=result.get("view_url"),
-                metadata=result["metadata"]
+                view_url=view_url,
+                metadata=result.get("metadata")
             )
         else:
             raise HTTPException(status_code=500, detail=result["error"])
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -695,13 +831,11 @@ async def get_contact_qr_data(qr_id: str, db: Session = Depends(get_db)):
 
 @content_router.post("/scan/location")
 async def report_scan_location(payload: ScanLocationReport, request: Request, db: Session = Depends(get_db)):
-    """Receive scanner device geolocation for a QR and notify the owner via SMS if enabled."""
+    """Receive scanner device geolocation for a QR and optionally notify via SMS if contact data exists."""
     try:
         contact = db_service.get_contact_qr_data(db, payload.qr_id)
-        if not contact:
-            raise HTTPException(status_code=404, detail="Contact QR not found")
 
-        # Store usage entry with location string
+        # Store usage entry with location string always
         loc = f"{payload.lat},{payload.lng}"
         if payload.accuracy is not None:
             loc += f" (±{int(payload.accuracy)}m)"
@@ -714,30 +848,72 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
             location=loc
         )
 
-        # Send SMS if enabled and phone present, using Twilio if configured
-        sent = False
-        error = None
-        if getattr(contact, 'send_location_on_scan', True) and contact.phone_number:
-            try:
-                from twilio.rest import Client  # type: ignore
-                sid = os.getenv("TWILIO_ACCOUNT_SID")
-                token = os.getenv("TWILIO_AUTH_TOKEN")
-                from_num = os.getenv("TWILIO_FROM_NUMBER")
-                if not (sid and token and from_num):
-                    error = "twilio_env_missing"
-                else:
-                    maps = f"https://maps.google.com/?q={payload.lat},{payload.lng}"
-                    client = Client(sid, token)
-                    msg = client.messages.create(
-                        body=f"QuickQR: Your QR was scanned. Location: {maps}",
-                        from_=from_num,
-                        to=contact.phone_number
-                    )
-                    sent = True if msg.sid else False
-            except Exception as e:
-                error = str(e)
+        # If contact data exists and notifications are enabled, send SMS and/or email
+        sms_sent = False
+        sms_error = None
+        email_sent = False
+        email_error = None
 
-        return {"success": True, "sms": {"sent": sent, "error": error}}
+        if contact and getattr(contact, 'send_location_on_scan', True):
+            maps = f"https://maps.google.com/?q={payload.lat},{payload.lng}"
+            # SMS via Twilio
+            if contact.phone_number:
+                try:
+                    from twilio.rest import Client  # type: ignore
+                    sid = os.getenv("TWILIO_ACCOUNT_SID")
+                    token = os.getenv("TWILIO_AUTH_TOKEN")
+                    from_num = os.getenv("TWILIO_FROM_NUMBER")
+                    if not (sid and token and from_num):
+                        sms_error = "twilio_env_missing"
+                    else:
+                        client = Client(sid, token)
+                        msg = client.messages.create(
+                            body=f"QuickQR: Your QR was scanned. Location: {maps}",
+                            from_=from_num,
+                            to=contact.phone_number
+                        )
+                        sms_sent = True if msg.sid else False
+                except Exception as e:
+                    sms_error = str(e)
+
+            # Email via SMTP (optional fallback)
+            if contact.email:
+                try:
+                    import smtplib
+                    from email.mime.text import MIMEText
+
+                    smtp_host = os.getenv("SMTP_HOST")
+                    smtp_port = int(os.getenv("SMTP_PORT") or 587)
+                    smtp_user = os.getenv("SMTP_USER")
+                    smtp_pass = os.getenv("SMTP_PASS")
+                    smtp_from = os.getenv("SMTP_FROM") or (smtp_user or "")
+
+                    if smtp_host and smtp_from:
+                        body = (
+                            f"Your QR was scanned.\n\n"
+                            f"Location: {maps}\n"
+                            f"Coordinates: {payload.lat}, {payload.lng}\n"
+                            f"Accuracy: {payload.accuracy or 'n/a'}\n"
+                            f"IP: {(request.client.host if request.client else 'n/a')}\n"
+                            f"User-Agent: {request.headers.get('user-agent')}\n"
+                        )
+                        msg = MIMEText(body)
+                        msg['Subject'] = 'QuickQR scan location'
+                        msg['From'] = smtp_from
+                        msg['To'] = contact.email
+
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                            server.starttls()
+                            if smtp_user and smtp_pass:
+                                server.login(smtp_user, smtp_pass)
+                            server.send_message(msg)
+                        email_sent = True
+                    else:
+                        email_error = "smtp_env_missing"
+                except Exception as e:
+                    email_error = str(e)
+
+        return {"success": True, "sms": {"sent": sms_sent, "error": sms_error}, "email": {"sent": email_sent, "error": email_error}}
     except HTTPException:
         raise
     except Exception as e:

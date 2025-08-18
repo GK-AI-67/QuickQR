@@ -62,7 +62,7 @@ const ContactQRPage = () => {
     }
   }
 
-  // Generate Contact QR code
+  // Generate Lost & Found Contact QR (stored contact, fancy hosted template, geolocation capture)
   const onSubmit = async (data: ContactQRRequest) => {
     if (!data.full_name.value.trim()) {
       toast.error('Full name is required')
@@ -79,20 +79,23 @@ const ContactQRPage = () => {
 
     setIsGenerating(true)
     try {
-      const response = await contactQRAPI.generateContactQR({
+      const payload: ContactQRRequest = {
         ...data,
+        size: watchedValues.size || 512,
+        error_correction: watchedValues.error_correction || 'M',
+        border: watchedValues.border || 4,
         foreground_color: selectedColors.foreground,
-        background_color: selectedColors.background
-      })
-
-      if (response.success && response.qr_code_data) {
-        setQrCodeData(response.qr_code_data)
-        toast.success('Contact QR code generated successfully!')
+        background_color: selectedColors.background,
+      }
+      const res = await contactQRAPI.generateContactQR(payload)
+      if (res.success && res.qr_code_data) {
+        setQrCodeData(res.qr_code_data)
+        toast.success('Lost & Found QR generated!')
       } else {
-        toast.error(response.error || 'Failed to generate Contact QR code')
+        toast.error(res.error || 'Failed to generate Lost & Found QR')
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to generate Contact QR code')
+      toast.error(error.message || 'Failed to generate Lost & Found QR')
     } finally {
       setIsGenerating(false)
     }

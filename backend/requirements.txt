@@ -18,3 +18,4 @@ alembic
 psycopg2-binary
 Pillow
 email-validator 
+twilio

@@ -1,4 +1,5 @@
-import axios from 'axios'
+// @ts-ignore
+import axios, { AxiosResponse } from 'axios'
 import { QRCodeRequest, QRCodeResponse, AISuggestionRequest, AISuggestionResponse, ContactQRRequest, ContactQRResponse } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quickqr-backend.onrender.com/api/v1'
@@ -7,6 +8,24 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quickqr-backend.on
 const api = axios.create({
   baseURL: API_BASE_URL,
 })
+
+// Redirect to login on unauthorized responses
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  (error: any) => {
+    const status = error?.response?.status
+    if (status === 401 || status === 403) {
+      if (typeof window !== 'undefined') {
+        try {
+          const current = window.location.pathname + window.location.search + window.location.hash
+          localStorage.setItem('post_login_redirect', current)
+        } catch {}
+        window.location.assign('/login')
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
 // Helper function for API calls (fetch-based) with auth header
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -25,6 +44,11 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
     
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (typeof window !== 'undefined') {
+          window.location.assign('/login')
+        }
+      }
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`)
     }
@@ -116,6 +140,14 @@ export const contactQRAPI = {
     apiCall<ContactQRResponse>('/qr/generate-contact', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+}
+
+export const pdfLinkQRAPI = {
+  generatePdfLinkQR: (payload: { pdf_path: string; size?: number; error_correction?: 'L'|'M'|'Q'|'H'; border?: number; foreground_color?: string; background_color?: string; logo_url?: string; }): Promise<QRCodeResponse> =>
+    apiCall<QRCodeResponse>('/qr/generate-pdf-link', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 }
 

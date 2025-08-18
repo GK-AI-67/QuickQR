@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation() as any
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const googleDivRef = useRef<HTMLDivElement>(null)
@@ -19,7 +20,12 @@ export default function LoginPage() {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
     login(res.data.access_token)
-    navigate('/generator')
+    const stored = localStorage.getItem('post_login_redirect')
+    if (stored) {
+      try { localStorage.removeItem('post_login_redirect') } catch {}
+    }
+    const redirectTo = stored || location?.state?.from?.pathname || '/generator'
+    navigate(redirectTo, { replace: true })
   }
 
   // Google Identity Services
@@ -85,9 +91,14 @@ export default function LoginPage() {
   const { token } = useAuth()
   useEffect(() => {
     if (token) {
-      navigate('/generator', { replace: true })
+      const stored = localStorage.getItem('post_login_redirect')
+      if (stored) {
+        try { localStorage.removeItem('post_login_redirect') } catch {}
+      }
+      const redirectTo = stored || location?.state?.from?.pathname || '/generator'
+      navigate(redirectTo, { replace: true })
     }
-  }, [token, navigate])
+  }, [token, navigate, location])
 
   return (
     <div className="max-w-md mx-auto p-6">
