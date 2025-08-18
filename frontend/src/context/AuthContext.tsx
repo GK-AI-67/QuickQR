@@ -21,7 +21,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const id = api.interceptors.request.use((config) => {
       if (token) {
-        config.headers.set('Authorization', `Bearer ${token}`)
+        if (!config.headers) config.headers = {}
+        ;(config.headers as any)['Authorization'] = `Bearer ${token}`
       }
       return config
     })

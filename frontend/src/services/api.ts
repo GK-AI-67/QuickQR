@@ -1,10 +1,16 @@
+import axios from 'axios'
 import { QRCodeRequest, QRCodeResponse, AISuggestionRequest, AISuggestionResponse, ContactQRRequest, ContactQRResponse } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quickqr-backend.onrender.com/api/v1'
 
-// Helper function for API calls
+// Create axios instance (used by auth context and some pages)
+const api = axios.create({
+  baseURL: API_BASE_URL,
+})
+
+// Helper function for API calls (fetch-based) with auth header
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('auth_token')
   
   const config: RequestInit = {
     headers: {
@@ -117,19 +123,10 @@ export const contentAPI = {
   uploadPDF: async (file: File): Promise<{ path: string }> => {
     const form = new FormData()
     form.append('file', file)
-    
-    // Get auth token from localStorage
-    const token = localStorage.getItem('auth_token')
-    
-    const response = await fetch(`${API_BASE_URL}/upload-pdf`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      body: form,
+    const res = await api.post('/upload-pdf', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
-    return response.json()
+    return res.data
   },
 }
 
@@ -140,3 +137,5 @@ export const healthAPI = {
     return response.json()
   },
 } 
+
+export default api

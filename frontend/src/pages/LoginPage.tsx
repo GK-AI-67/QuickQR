@@ -30,7 +30,7 @@ export default function LoginPage() {
       console.log('Google login callback triggered', resp)
       api
         .post('/auth/google', { id_token: resp.credential })
-        .then((r) => {
+        .then((r: any) => {
           console.log('Google login successful', r.data)
           login(r.data.access_token)
           console.log('Navigating to generator...')
@@ -38,7 +38,7 @@ export default function LoginPage() {
             navigate('/generator')
           }, 100)
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.error('Google login failed:', error)
         })
     }
