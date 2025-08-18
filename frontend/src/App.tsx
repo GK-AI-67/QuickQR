@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import { useAuth } from './context/AuthContext'
 
@@ -8,6 +9,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   if (!token) return <Navigate to="/login" state={{ from: location }} replace />
   return children
 }
+
 import { motion } from 'framer-motion'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -19,6 +21,38 @@ import AIContentPage from './pages/AIContentPage'
 import PDFDesignerPage from './pages/PDFDesignerPage'
 
 function App() {
+  const navigate = useNavigate()
+  const { token } = useAuth()
+
+  // Handle stored redirects when app loads
+  useEffect(() => {
+    const stored = localStorage.getItem('post_login_redirect')
+    if (stored && token) {
+      try {
+        localStorage.removeItem('post_login_redirect')
+        navigate(stored, { replace: true })
+      } catch {}
+    }
+  }, [token, navigate])
+
+  // Global error handler for 401/403
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      const stored = localStorage.getItem('post_login_redirect')
+      if (!stored) {
+        try {
+          const current = window.location.pathname + window.location.search + window.location.hash
+          localStorage.setItem('post_login_redirect', current)
+        } catch {}
+      }
+      navigate('/login', { replace: true })
+    }
+
+    // Listen for custom unauthorized events
+    window.addEventListener('unauthorized', handleUnauthorized)
+    return () => window.removeEventListener('unauthorized', handleUnauthorized)
+  }, [navigate])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Header />

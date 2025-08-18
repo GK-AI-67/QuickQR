@@ -20,7 +20,8 @@ api.interceptors.response.use(
           const current = window.location.pathname + window.location.search + window.location.hash
           localStorage.setItem('post_login_redirect', current)
         } catch {}
-        window.location.assign('/login')
+        // Dispatch custom event for React Router to handle
+        window.dispatchEvent(new CustomEvent('unauthorized'))
       }
     }
     return Promise.reject(error)
@@ -46,7 +47,12 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         if (typeof window !== 'undefined') {
-          window.location.assign('/login')
+          try {
+            const current = window.location.pathname + window.location.search + window.location.hash
+            localStorage.setItem('post_login_redirect', current)
+          } catch {}
+          // Dispatch custom event for React Router to handle
+          window.dispatchEvent(new CustomEvent('unauthorized'))
         }
       }
       const errorData = await response.json().catch(() => ({}))
