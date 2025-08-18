@@ -466,7 +466,8 @@ async def view_pdf_with_geo(qr_id: str, request: Request, db: Session = Depends(
             if (!navigator.geolocation) return go();
             navigator.geolocation.getCurrentPosition(function(p) {{
               sent = true;
-              fetch('/api/v1/scan/location', {{
+              var base = window.location.origin;
+              fetch(base + '/api/v1/scan/location', {{
                 method: 'POST', headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{ qr_id: '{qr_id}', lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }})
               }}).finally(go);
@@ -715,7 +716,8 @@ async def view_contact_qr(qr_id: str, db: Session = Depends(get_db), request: Re
             if (localStorage.getItem(key)) return;
             if (!navigator.geolocation) return;
             navigator.geolocation.getCurrentPosition(function(p) {{
-              fetch('/api/v1/scan/location', {{
+              var base = window.location.origin;
+              fetch(base + '/api/v1/scan/location', {{
                 method: 'POST',
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{ qr_id: '{qr_id}', lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }})
