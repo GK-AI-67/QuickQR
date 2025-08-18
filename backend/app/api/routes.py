@@ -5,7 +5,8 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.models.qr_models import (
-    QRCodeRequest, QRCodeResponse, AISuggestionRequest, AISuggestionResponse, QRContentDisplay
+    QRCodeRequest, QRCodeResponse, AISuggestionRequest, AISuggestionResponse, QRContentDisplay,
+    ContactQRRequest, ContactQRResponse, ContactQRDisplay
 )
 from app.services.qr_service import QRCodeService
 from app.services.ai_service import AIService
@@ -15,6 +16,13 @@ from app.core.database import get_db
 from app.api.auth import get_current_user
 import os
 from datetime import datetime
+
+# Model for scan location reporting
+class ScanLocationReport(BaseModel):
+    qr_id: str
+    lat: float
+    lng: float
+    accuracy: Optional[float] = None
 
 # Create routers
 qr_router = APIRouter()
@@ -464,3 +472,273 @@ async def search_designs(
         }
         for design in designs
     ] 
+
+@qr_router.post("/generate-contact", response_model=ContactQRResponse)
+async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Generate a Contact QR code with flag support"""
+    try:
+        # Validate required fields
+        if not request.full_name.value.strip():
+            raise HTTPException(status_code=400, detail="Full name is required")
+        if not request.phone_number.value.strip():
+            raise HTTPException(status_code=400, detail="Phone number is required")
+        if not request.address.value.strip():
+            raise HTTPException(status_code=400, detail="Address is required")
+        
+        # Save QR design to database
+        qr_design = db_service.create_qr_design(db, {
+            "content": f"Contact QR: {request.full_name.value}",
+            "qr_type": "contact_qr",
+            "size": request.size,
+            "error_correction": request.error_correction,
+            "border": request.border,
+            "foreground_color": request.foreground_color,
+            "background_color": request.background_color,
+            "logo_url": request.logo_url
+        })
+        qr_id = qr_design.id
+        
+        # Save contact data to database
+        contact_data = ContactQRDisplay(
+            qr_id=qr_id,
+            full_name=request.full_name.value if request.full_name.show else None,
+            phone_number=request.phone_number.value if request.phone_number.show else None,
+            address=request.address.value if request.address.show else None,
+            email=request.email.value if request.email and request.email.show else None,
+            company=request.company.value if request.company and request.company.show else None,
+            website=request.website.value if request.website and request.website.show else None,
+            send_location_on_scan=request.send_location_on_scan,
+            created_at=datetime.utcnow(),
+            qr_type="contact_qr"
+        )
+        
+        # Save to database (you'll need to implement this in your database service)
+        db_service.save_contact_qr_data(db, contact_data)
+        
+        # Generate QR code
+        result = qr_service.generate_contact_qr_code(request, qr_id)
+        
+        if result["success"]:
+            return ContactQRResponse(
+                success=True,
+                qr_code_data=result["qr_code_data"],
+                qr_id=qr_id,
+                view_url=result.get("view_url"),
+                metadata=result["metadata"]
+            )
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate Contact QR code: {str(e)}")
+
+@content_router.get("/contact-view/{qr_id}")
+async def view_contact_qr(qr_id: str, db: Session = Depends(get_db), request: Request = None):
+    """View Contact QR content by QR ID"""
+    # Record usage for analytics
+    if request:
+        db_service.record_qr_usage(
+            db=db,
+            qr_design_id=qr_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            referrer=request.headers.get("referer")
+        )
+    
+    # Get contact data from database
+    contact_data = db_service.get_contact_qr_data(db, qr_id)
+    if not contact_data:
+        raise HTTPException(status_code=404, detail="Contact QR not found")
+    
+    # Build HTML content showing only the flagged information
+    contact_fields = []
+    if contact_data.full_name:
+        contact_fields.append(f'<div class="contact-field"><strong>Name:</strong> {contact_data.full_name}</div>')
+    if contact_data.phone_number:
+        contact_fields.append(f'<div class="contact-field"><strong>Phone:</strong> <a href="tel:{contact_data.phone_number}">{contact_data.phone_number}</a></div>')
+    if contact_data.address:
+        contact_fields.append(f'<div class="contact-field"><strong>Address:</strong> {contact_data.address}</div>')
+    if contact_data.email:
+        contact_fields.append(f'<div class="contact-field"><strong>Email:</strong> <a href="mailto:{contact_data.email}">{contact_data.email}</a></div>')
+    if contact_data.company:
+        contact_fields.append(f'<div class="contact-field"><strong>Company:</strong> {contact_data.company}</div>')
+    if contact_data.website:
+        contact_fields.append(f'<div class="contact-field"><strong>Website:</strong> <a href="{contact_data.website}" target="_blank">{contact_data.website}</a></div>')
+    
+    contact_html = "\n".join(contact_fields)
+
+    # Geolocation capture script (runs only if enabled via stored data)
+    geo_script = ""
+    if getattr(contact_data, 'send_location_on_scan', True):
+        geo_script = f"""
+        <script>
+        (function() {{
+          try {{
+            var key = 'quickqr_geo_{qr_id}';
+            if (localStorage.getItem(key)) return;
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(function(p) {{
+              fetch('/api/v1/scan/location', {{
+                method: 'POST',
+                headers: {{ 'Content-Type': 'application/json' }},
+                body: JSON.stringify({{ qr_id: '{qr_id}', lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }})
+              }}).then(function() {{ localStorage.setItem(key, '1'); }}).catch(function() {{}});
+            }}, function(err) {{}}, {{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }});
+          }} catch (e) {{}}
+        }})();
+        </script>
+        """
+
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Contact Information</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }}
+            .contact-card {{ 
+                background: white; 
+                border-radius: 20px; 
+                padding: 40px; 
+                box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                max-width: 500px; 
+                width: 100%;
+                text-align: center;
+            }}
+            .contact-header {{
+                margin-bottom: 30px;
+                color: #333;
+            }}
+            .contact-header h1 {{
+                margin: 0 0 10px 0;
+                font-size: 28px;
+                font-weight: 600;
+                color: #2d3748;
+            }}
+            .contact-header p {{
+                margin: 0;
+                color: #718096;
+                font-size: 16px;
+            }}
+            .contact-fields {{
+                text-align: left;
+            }}
+            .contact-field {{
+                padding: 15px 0;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 16px;
+                color: #4a5568;
+            }}
+            .contact-field:last-child {{
+                border-bottom: none;
+            }}
+            .contact-field strong {{
+                color: #2d3748;
+                display: inline-block;
+                width: 80px;
+                margin-right: 15px;
+            }}
+            .contact-field a {{
+                color: #3182ce;
+                text-decoration: none;
+            }}
+            .contact-field a:hover {{
+                text-decoration: underline;
+            }}
+            .qr-info {{
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+                font-size: 14px;
+                color: #718096;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="contact-card">
+            <div class="contact-header">
+                <h1>Contact Information</h1>
+                <p>Scanned from QR Code</p>
+            </div>
+            <div class="contact-fields">
+                {contact_html}
+            </div>
+            <div class="qr-info">
+                Generated by QuickQR • {contact_data.created_at.strftime('%B %d, %Y')}
+            </div>
+        </div>
+        {geo_script}
+    </body>
+    </html>
+    """)
+
+@content_router.get("/contact-data/{qr_id}")
+async def get_contact_qr_data(qr_id: str, db: Session = Depends(get_db)):
+    """Get Contact QR data by QR ID (API endpoint)"""
+    contact_data = db_service.get_contact_qr_data(db, qr_id)
+    if not contact_data:
+        raise HTTPException(status_code=404, detail="Contact QR not found")
+    
+    return contact_data 
+
+@content_router.post("/scan/location")
+async def report_scan_location(payload: ScanLocationReport, request: Request, db: Session = Depends(get_db)):
+    """Receive scanner device geolocation for a QR and notify the owner via SMS if enabled."""
+    try:
+        contact = db_service.get_contact_qr_data(db, payload.qr_id)
+        if not contact:
+            raise HTTPException(status_code=404, detail="Contact QR not found")
+
+        # Store usage entry with location string
+        loc = f"{payload.lat},{payload.lng}"
+        if payload.accuracy is not None:
+            loc += f" (±{int(payload.accuracy)}m)"
+        db_service.record_qr_usage(
+            db=db,
+            qr_design_id=payload.qr_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            referrer=request.headers.get("referer"),
+            location=loc
+        )
+
+        # Send SMS if enabled and phone present, using Twilio if configured
+        sent = False
+        error = None
+        if getattr(contact, 'send_location_on_scan', True) and contact.phone_number:
+            try:
+                from twilio.rest import Client  # type: ignore
+                sid = os.getenv("TWILIO_ACCOUNT_SID")
+                token = os.getenv("TWILIO_AUTH_TOKEN")
+                from_num = os.getenv("TWILIO_FROM_NUMBER")
+                if not (sid and token and from_num):
+                    error = "twilio_env_missing"
+                else:
+                    maps = f"https://maps.google.com/?q={payload.lat},{payload.lng}"
+                    client = Client(sid, token)
+                    msg = client.messages.create(
+                        body=f"QuickQR: Your QR was scanned. Location: {maps}",
+                        from_=from_num,
+                        to=contact.phone_number
+                    )
+                    sent = True if msg.sid else False
+            except Exception as e:
+                error = str(e)
+
+        return {"success": True, "sms": {"sent": sent, "error": error}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to record scan location: {str(e)}")

@@ -4,7 +4,7 @@ import base64
 import io
 import re
 from typing import Optional
-from app.models.qr_models import QRCodeRequest, ContactInfo, WiFiInfo, EmailInfo, SMSInfo
+from app.models.qr_models import QRCodeRequest, ContactInfo, WiFiInfo, EmailInfo, SMSInfo, ContactQRRequest, ContactField
 
 class QRCodeService:
     def __init__(self):
@@ -72,6 +72,69 @@ class QRCodeService:
                     "qr_type": request.qr_type,
                     "size": request.size,
                     "error_correction": request.error_correction
+                }
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def generate_contact_qr_code(self, request: ContactQRRequest, qr_id: str = None) -> dict:
+        """Generate Contact QR code with flag support"""
+        try:
+            # Build vCard content with only flagged fields
+            vcard_content = self._build_vcard_with_flags(request)
+            
+            # Create QR code
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=self._get_error_correction(request.error_correction),
+                box_size=min(request.size // 50, 10),
+                border=request.border,
+            )
+            
+            qr.add_data(vcard_content)
+            qr.make(fit=True)
+            
+            # Create image
+            img = qr.make_image(
+                fill_color=request.foreground_color,
+                back_color=request.background_color
+            )
+            
+            # Resize to requested size if different
+            if request.size > 0 and (img.width != request.size or img.height != request.size):
+                img = img.resize((request.size, request.size), Image.Resampling.LANCZOS)
+            
+            # Add logo if provided
+            if request.logo_url:
+                img = self._add_logo(img, request.logo_url)
+            
+            # Convert to base64
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            img_str = base64.b64encode(buffer.getvalue()).decode()
+            
+            return {
+                "success": True,
+                "qr_code_data": f"data:image/png;base64,{img_str}",
+                "qr_id": qr_id,
+                "view_url": f"https://quickqr-frontend.onrender.com/contact-view/{qr_id}" if qr_id else None,
+                "metadata": {
+                    "content": vcard_content,
+                    "qr_type": "contact_qr",
+                    "size": request.size,
+                    "error_correction": request.error_correction,
+                    "contact_data": {
+                        "full_name": request.full_name.value if request.full_name.show else None,
+                        "phone_number": request.phone_number.value if request.phone_number.show else None,
+                        "address": request.address.value if request.address.show else None,
+                        "email": request.email.value if request.email and request.email.show else None,
+                        "company": request.company.value if request.company and request.company.show else None,
+                        "website": request.website.value if request.website and request.website.show else None,
+                    }
                 }
             }
             
@@ -155,6 +218,32 @@ class QRCodeService:
         """Add logo to QR code (placeholder implementation)"""
         # In a real implementation, you'd download and add the logo
         return qr_image
+    
+    def _build_vcard_with_flags(self, request: ContactQRRequest) -> str:
+        """Build vCard content with only flagged fields"""
+        vcard_lines = ["BEGIN:VCARD", "VERSION:3.0"]
+        
+        # Add only the fields that are flagged to show
+        if request.full_name.show:
+            vcard_lines.append(f"FN:{request.full_name.value}")
+        
+        if request.phone_number.show:
+            vcard_lines.append(f"TEL:{request.phone_number.value}")
+        
+        if request.address.show:
+            vcard_lines.append(f"ADR:;;{request.address.value}")
+        
+        if request.email and request.email.show:
+            vcard_lines.append(f"EMAIL:{request.email.value}")
+        
+        if request.company and request.company.show:
+            vcard_lines.append(f"ORG:{request.company.value}")
+        
+        if request.website and request.website.show:
+            vcard_lines.append(f"URL:{request.website.value}")
+        
+        vcard_lines.append("END:VCARD")
+        return "\n".join(vcard_lines)
     
     def validate_url(self, url: str) -> bool:
         """Validate URL format"""

@@ -13,12 +13,53 @@ class QRCodeType(str, Enum):
     PHONE = "phone"
     SMS = "sms"
     CONTENT = "content"  # New type for displaying content
+    CONTACT_QR = "contact_qr"  # New type for contact QR with flags
 
 class ErrorCorrectionLevel(str, Enum):
     L = "L"
     M = "M"
     Q = "Q"
     H = "H"
+
+# New Contact QR models
+class ContactField(BaseModel):
+    value: str = Field(..., description="Field value")
+    show: bool = Field(True, description="Whether to show this field when scanning")
+
+class ContactQRRequest(BaseModel):
+    full_name: ContactField = Field(..., description="Full name with show flag")
+    phone_number: ContactField = Field(..., description="Phone number with show flag")
+    address: ContactField = Field(..., description="Address with show flag")
+    email: Optional[ContactField] = Field(None, description="Email with show flag")
+    company: Optional[ContactField] = Field(None, description="Company with show flag")
+    website: Optional[ContactField] = Field(None, description="Website with show flag")
+    send_location_on_scan: bool = Field(True, description="Request scanner location and notify owner once per scan")
+    size: int = Field(10, ge=1, le=1024, description="QR code size")
+    error_correction: ErrorCorrectionLevel = Field(ErrorCorrectionLevel.M, description="Error correction level")
+    border: int = Field(4, ge=0, le=10, description="Border width")
+    foreground_color: str = Field("#000000", description="Foreground color")
+    background_color: str = Field("#FFFFFF", description="Background color")
+    logo_url: Optional[str] = Field(None, description="Logo URL to overlay on QR code")
+
+class ContactQRResponse(BaseModel):
+    success: bool
+    qr_code_data: Optional[str] = None
+    qr_id: Optional[str] = None
+    view_url: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class ContactQRDisplay(BaseModel):
+    qr_id: str
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    email: Optional[str] = None
+    company: Optional[str] = None
+    website: Optional[str] = None
+    send_location_on_scan: bool = True
+    created_at: datetime
+    qr_type: QRCodeType
 
 class QRCodeRequest(BaseModel):
     content: str = Field(..., description="Content for the QR code")

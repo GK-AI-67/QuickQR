@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 from typing import List, Optional, Dict, Any
 from app.models.database_models import QRDesign, ContentData, DesignImage, QRCodeUsage
-from app.models.qr_models import QRCodeRequest, QRCodeType
+from app.models.qr_models import QRCodeRequest, QRCodeType, ContactQRDisplay
 from app.core.database import get_db
 import os
 import uuid
@@ -17,20 +17,20 @@ class DatabaseService:
         self.upload_dir = "uploads"
         os.makedirs(self.upload_dir, exist_ok=True)
     
-    def create_qr_design(self, db: Session, qr_request: QRCodeRequest, qr_id: Optional[str] = None) -> QRDesign:
+    def create_qr_design(self, db: Session, qr_request: Dict[str, Any], qr_id: Optional[str] = None) -> QRDesign:
         """Create a new QR design in the database"""
         design = QRDesign(
             id=qr_id or str(uuid.uuid4()),
-            title=qr_request.title,
-            description=qr_request.description,
-            content=qr_request.content,
-            qr_type=qr_request.qr_type,
-            size=qr_request.size,
-            error_correction=qr_request.error_correction,
-            border=qr_request.border,
-            foreground_color=qr_request.foreground_color,
-            background_color=qr_request.background_color,
-            logo_url=qr_request.logo_url
+            title=qr_request.get('title'),
+            description=qr_request.get('description'),
+            content=qr_request.get('content'),
+            qr_type=qr_request.get('qr_type'),
+            size=qr_request.get('size'),
+            error_correction=qr_request.get('error_correction'),
+            border=qr_request.get('border'),
+            foreground_color=qr_request.get('foreground_color'),
+            background_color=qr_request.get('background_color'),
+            logo_url=qr_request.get('logo_url')
         )
         
         db.add(design)
@@ -200,3 +200,45 @@ class DatabaseService:
                 )
             )
         ).order_by(desc(QRDesign.created_at)).limit(limit).all() 
+
+    def save_contact_qr_data(self, db: Session, contact_data: ContactQRDisplay) -> ContactQRDisplay:
+        """Save Contact QR data to database"""
+        # For now, we'll store it in the content_data table with a special type
+        # In a production app, you'd have a dedicated ContactQR table
+        content_data = ContentData(
+            qr_design_id=contact_data.qr_id,
+            content_type="contact_qr",
+            text_content=str(contact_data.dict()),
+            image_filename=None,
+            image_path=None
+        )
+        
+        db.add(content_data)
+        db.commit()
+        db.refresh(content_data)
+        return contact_data
+    
+    def get_contact_qr_data(self, db: Session, qr_id: str) -> Optional[ContactQRDisplay]:
+        """Get Contact QR data from database"""
+        content_data = db.query(ContentData).filter(
+            and_(ContentData.qr_design_id == qr_id, ContentData.content_type == "contact_qr")
+        ).first()
+        
+        if not content_data:
+            return None
+        
+        try:
+            # Parse the stored contact data
+            import ast
+            contact_dict = ast.literal_eval(content_data.text_content)
+            return ContactQRDisplay(**contact_dict)
+        except:
+            # Fallback: create basic contact data
+            return ContactQRDisplay(
+                qr_id=qr_id,
+                full_name="Contact Information",
+                phone_number="Available",
+                address="Available",
+                created_at=content_data.created_at,
+                qr_type="contact_qr"
+            ) 

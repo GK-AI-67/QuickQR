@@ -39,9 +39,55 @@ export interface AISuggestionResponse {
   confidence_score: number
 }
 
-export type QRCodeType = 'url' | 'text' | 'contact' | 'wifi' | 'email' | 'phone' | 'sms' | 'content'
+export type QRCodeType = 'url' | 'text' | 'contact' | 'wifi' | 'email' | 'phone' | 'sms' | 'content' | 'contact_qr'
 
 export type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H'
+
+// New Contact QR types
+export interface ContactField {
+  value: string
+  show: boolean
+}
+
+export interface ContactQRRequest {
+  full_name: ContactField
+  phone_number: ContactField
+  address: ContactField
+  email?: ContactField
+  company?: ContactField
+  website?: ContactField
+  send_location_on_scan?: boolean
+  size: number
+  error_correction: ErrorCorrectionLevel
+  border: number
+  foreground_color: string
+  background_color: string
+  logo_url?: string
+}
+
+export interface ContactQRResponse {
+  success: boolean
+  qr_code_data?: string
+  qr_id?: string
+  view_url?: string
+  metadata?: ContactQRMetadata
+  error?: string
+}
+
+export interface ContactQRMetadata {
+  content: string
+  qr_type: QRCodeType
+  size: number
+  error_correction: ErrorCorrectionLevel
+  contact_data: {
+    full_name?: string
+    phone_number?: string
+    address?: string
+    email?: string
+    company?: string
+    website?: string
+  }
+}
 
 export interface QRCodeTypeOption {
   value: QRCodeType
