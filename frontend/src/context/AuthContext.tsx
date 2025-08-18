@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // attach to axios
   useEffect(() => {
-    const id = api.interceptors.request.use((config) => {
+    const id = api.interceptors.request.use((config: any) => {
       if (token) {
         // Ensure headers exists with a compatible type
         if (!config.headers) {
