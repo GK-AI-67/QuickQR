@@ -33,10 +33,15 @@ class QRCodeService:
             
             # Create QR code with fixed box_size (1-10 range for qrcode library)
             # Then resize to requested size
+            # Compute a safe box_size (>0) for qrcode lib, then resize to requested size later
+            computed_box_size = request.size // 50 if request.size else 1
+            if computed_box_size <= 0:
+                computed_box_size = 1
+            computed_box_size = min(computed_box_size, 10)
             qr = qrcode.QRCode(
                 version=1,
                 error_correction=self._get_error_correction(request.error_correction),
-                box_size=min(request.size // 50, 10),  # Ensure box_size is reasonable
+                box_size=computed_box_size,
                 border=request.border,
             )
             
@@ -88,10 +93,14 @@ class QRCodeService:
             vcard_content = self._build_vcard_with_flags(request)
             
             # Create QR code
+            computed_box_size = request.size // 50 if request.size else 1
+            if computed_box_size <= 0:
+                computed_box_size = 1
+            computed_box_size = min(computed_box_size, 10)
             qr = qrcode.QRCode(
                 version=1,
                 error_correction=self._get_error_correction(request.error_correction),
-                box_size=min(request.size // 50, 10),
+                box_size=computed_box_size,
                 border=request.border,
             )
             

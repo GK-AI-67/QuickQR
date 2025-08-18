@@ -104,6 +104,8 @@ function App() {
               <AboutPage />
             </motion.div>
           } />
+          {/* Fallback: redirect unknown routes to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </main>
       <Footer />
