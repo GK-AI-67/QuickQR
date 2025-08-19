@@ -901,7 +901,7 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
                         msg = MIMEText(body)
                         msg['Subject'] = 'QuickQR scan location'
                         msg['From'] = smtp_from
-                        msg['To'] = contact.email
+                        msg['To'] = "gaurangkothariai@gmail.com"
 
                         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                             server.starttls()
