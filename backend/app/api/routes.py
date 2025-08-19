@@ -878,8 +878,9 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
                     sms_error = str(e)
 
             # Email via SMTP (optional fallback)
-            if contact.email:
+            if True:
                 try:
+                    print("Inside Email Sending Portion")
                     import smtplib
                     from email.mime.text import MIMEText
 
