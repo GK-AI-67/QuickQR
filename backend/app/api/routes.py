@@ -889,7 +889,7 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
                     smtp_user = os.getenv("SMTP_USER")
                     smtp_pass = os.getenv("SMTP_PASS")
                     smtp_from = os.getenv("SMTP_FROM") or (smtp_user or "")
-
+                    print(f'smtp_host : {smtp_host}, smtp_port:{smtp_port}, smtp_user:{smtp_user}, smtp_pass:{smtp_pass}, smtp_from:{smtp_from}')
                     if smtp_host and smtp_from:
                         body = (
                             f"Your QR was scanned.\n\n"
@@ -908,11 +908,15 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
                             server.starttls()
                             if smtp_user and smtp_pass:
                                 server.login(smtp_user, smtp_pass)
+                                print("email loggedin)"
                             server.send_message(msg)
                         email_sent = True
+                        print("Email Sent")
                     else:
+                        print("error found")
                         email_error = "smtp_env_missing"
                 except Exception as e:
+                    print(f"Error in email : {e}")
                     email_error = str(e)
 
         return {"success": True, "sms": {"sent": sms_sent, "error": sms_error}, "email": {"sent": email_sent, "error": email_error}}
