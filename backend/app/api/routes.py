@@ -908,7 +908,7 @@ async def report_scan_location(payload: ScanLocationReport, request: Request, db
                             server.starttls()
                             if smtp_user and smtp_pass:
                                 server.login(smtp_user, smtp_pass)
-                                print("email loggedin)"
+                                print("email logged in")
                             server.send_message(msg)
                         email_sent = True
                         print("Email Sent")
