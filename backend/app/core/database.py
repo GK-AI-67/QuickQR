@@ -7,7 +7,10 @@ import os
 # Database URL - using PostgreSQL for production, SQLite for development
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./quickqr.db")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://neondb_owner:npg_GvDX8FOekdu7@ep-gentle-cake-aewhidkw-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+)
 
 # Handle Render's PostgreSQL URL format
 if DATABASE_URL.startswith("postgres://"):

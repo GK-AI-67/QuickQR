@@ -622,7 +622,8 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
         })
         qr_id = qr_design.id
 
-        # Save contact data to database
+
+        # Save contact data to database (legacy JSON for compatibility)
         contact_data = ContactQRDisplay(
             qr_id=qr_id,
             full_name=request.full_name.value if request.full_name.show else None,
@@ -635,8 +636,25 @@ async def generate_contact_qr_code(request: ContactQRRequest, db: Session = Depe
             created_at=datetime.utcnow(),
             qr_type="contact_qr"
         )
-
         db_service.save_contact_qr_data(db, contact_data)
+
+        # Also save to LostAndFoundQR table for permanent, structured storage
+        from app.models.user_models import LostAndFoundQR
+        lost_and_found = LostAndFoundQR(
+            user_id=user.id,
+            qr_id=qr_id,
+            full_name=request.full_name.value if request.full_name.show else None,
+            phone_number=request.phone_number.value if request.phone_number.show else None,
+            address=request.address.value if request.address.show else None,
+            email=request.email.value if request.email and request.email.show else None,
+            company=request.company.value if request.company and request.company.show else None,
+            website=request.website.value if request.website and request.website.show else None,
+            send_location_on_scan=request.send_location_on_scan,
+            is_found=False
+        )
+        db.add(lost_and_found)
+        db.commit()
+        db.refresh(lost_and_found)
 
         # Build hosted view URL and generate URL QR (not vCard) so we can capture location on scan
         base = str(http_request.base_url).rstrip("/") if http_request else ""
