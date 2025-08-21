@@ -183,4 +183,6 @@ The application is now ready to use! It includes everything you requested:
 ✅ Proper project structure and documentation
 Ganapati Bappa Moriya! 🐘🙏 Your QuickQR application is now complete and ready to generate beautiful QR codes with AI intelligence!
 
+gittoken : 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
+
 **Ganapati Bappa Moriya!** 🐘🙏 
