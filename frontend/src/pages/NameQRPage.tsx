@@ -28,7 +28,7 @@ const NameQRPage = () => {
         body: JSON.stringify({
           content,
           qr_type: 'text',
-          size: 10,
+          size: 512,
           error_correction: 'M',
           border: 4,
           foreground_color: '#000000',
