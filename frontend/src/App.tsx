@@ -15,7 +15,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import HomePage from './pages/HomePage'
 import GeneratorPage from './pages/GeneratorPage'
-import ContactQRPage from './pages/ContactQRPage'
+import ContactQRPage from './pages/LostAndFoundQRPage'
 import AboutPage from './pages/AboutPage'
 import AIContentPage from './pages/AIContentPage'
 import PDFDesignerPage from './pages/PDFDesignerPage'
@@ -96,6 +96,16 @@ function App() {
               <RequireAuth>
                 <ContactQRPage />
               </RequireAuth>
+            </motion.div>
+          } />
+          {/* Public scan route for Lost & Found QR (no auth to allow anyone to scan) */}
+          <Route path="/lost-and-found/:qrId" element={
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <ContactQRPage />
             </motion.div>
           } />
           <Route path="/lost-found" element={

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useLocation, useNavigate } from 'react-router-dom'
 import api from '../services/api'
@@ -7,26 +7,26 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation() as any
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // const [email, setEmail] = useState('')
+  // const [password, setPassword] = useState('')
   const googleDivRef = useRef<HTMLDivElement>(null)
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const params = new URLSearchParams()
-    params.set('username', email)
-    params.set('password', password)
-    const res = await api.post('/auth/login', params, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-    login(res.data.access_token)
-    const stored = localStorage.getItem('post_login_redirect')
-    if (stored) {
-      try { localStorage.removeItem('post_login_redirect') } catch {}
-    }
-    const redirectTo = stored || location?.state?.from?.pathname || '/generator'
-    navigate(redirectTo, { replace: true })
-  }
+  // async function onSubmit(e: React.FormEvent) {
+  //   e.preventDefault()
+  //   const params = new URLSearchParams()
+  //   params.set('username', email)
+  //   params.set('password', password)
+  //   const res = await api.post('/auth/login', params, {
+  //     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  //   })
+  //   login(res.data.access_token)
+  //   const stored = localStorage.getItem('post_login_redirect')
+  //   if (stored) {
+  //     try { localStorage.removeItem('post_login_redirect') } catch {}
+  //   }
+  //   const redirectTo = stored || location?.state?.from?.pathname || '/generator'
+  //   navigate(redirectTo, { replace: true })
+  // }
 
   // Google Identity Services
   useEffect(() => {
@@ -34,6 +34,8 @@ export default function LoginPage() {
     
     const cb = (resp: any) => {
       console.log('Google login callback triggered', resp)
+      // Set redirect to Lost and Found page for Google login
+      localStorage.setItem('post_login_redirect', '/lost-and-found-qr')
       api
         .post('/auth/google', { id_token: resp.credential })
         .then((r: any) => {
@@ -103,13 +105,20 @@ export default function LoginPage() {
   return (
     <div className="max-w-md mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-4">Sign in</h1>
+      {/**
+       * Email/password form temporarily disabled; Google sign-in only
+       */}
+      {/**
       <form onSubmit={onSubmit} className="space-y-3">
         <input className="w-full border px-3 py-2 rounded" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input className="w-full border px-3 py-2 rounded" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <button className="w-full bg-black text-white py-2 rounded" type="submit">Login</button>
       </form>
       <div className="mt-6 flex items-center"><div className="flex-1 h-px bg-gray-200" /><span className="px-3 text-gray-500">or</span><div className="flex-1 h-px bg-gray-200" /></div>
+      */}
       <div ref={googleDivRef} className="mt-4 flex justify-center" />
+      {/** Debug buttons disabled */}
+      {/**
       <button 
         onClick={() => {
           console.log('Test navigation button clicked')
@@ -129,6 +138,7 @@ export default function LoginPage() {
       >
         Check Environment Variables
       </button>
+      */}
     </div>
   )
 }

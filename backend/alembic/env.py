@@ -16,12 +16,24 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
-from app.models.database_models import Base as DatabaseBase
-from app.models.user_models import LostAndFoundQR, User
-target_metadata = DatabaseBase.metadata
+from app.core.database import Base as MainBase
+from app.lost_and_found_qr.models.lost_and_found_qr_db import LostAndFoundQRDB, Base as LostAndFoundQRBase
+from app.lost_and_found_qr.models.user_qr_mpg_db import UserQRMPGDB, Base as UserQRMPGBase
+from app.lost_and_found_qr.models.user_dtls_db import UserDtlsDB, Base as UserDtlsBase
+from app.lost_and_found_qr.models.lost_and_found_scanner_db import LostAndFoundScannerDB, Base as LostAndFoundScannerBase
+
+# Combine all metadata for Alembic autogenerate
+from sqlalchemy import MetaData
+metadata = MetaData()
+for m in [MainBase.metadata, LostAndFoundQRBase.metadata, UserQRMPGBase.metadata, UserDtlsBase.metadata, LostAndFoundScannerBase.metadata]:
+    for t in m.tables.values():
+        if t.name not in metadata.tables:
+            metadata._add_table(t.name, t.schema, t)
+target_metadata = metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -47,6 +59,12 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
+        include_schemas=True,
+        render_as_batch=True,
+        # Only add, never drop
+        process_revision_directives=lambda context, revision, directives: _prevent_drop_ops(directives)
     )
 
     with context.begin_transaction():
@@ -67,12 +85,29 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+            include_schemas=True,
+            render_as_batch=True,
+            # Only add, never drop
+            process_revision_directives=lambda context, revision, directives: _prevent_drop_ops(directives)
         )
 
         with context.begin_transaction():
             context.run_migrations()
+
+def _prevent_drop_ops(directives):
+    from alembic.operations.ops import DropTableOp, DropColumnOp, DropConstraintOp, DropIndexOp
+    script = directives[0]
+    new_upgrade_ops = []
+    for op in script.upgrade_ops.ops:
+        if not isinstance(op, (DropTableOp, DropColumnOp, DropConstraintOp, DropIndexOp)):
+            new_upgrade_ops.append(op)
+    script.upgrade_ops.ops = new_upgrade_ops
 
 
 if context.is_offline_mode():

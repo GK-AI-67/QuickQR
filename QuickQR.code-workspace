@@ -1,0 +1,56 @@
+{
+    "folders": [
+        {
+            "name": "QuickQR",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "python",
+        "python.terminal.activateEnvironment": true,
+        "debug.allowBreakpointsEverywhere": true,
+        "debug.javascript.autoAttachFilter": "smart"
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "Python: FastAPI (uvicorn)",
+                "type": "python",
+                "request": "launch",
+                "module": "uvicorn",
+                "args": [
+                    "main:app",
+                    "--reload",
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    "8000"
+                ],
+                "jinja": true,
+                "cwd": "${workspaceFolder}/backend",
+                "env": {},
+                "console": "integratedTerminal",
+                "python": "${command:python.interpreterPath}"
+            },
+            {
+                "name": "Launch Chrome - Frontend Debug",
+                "type": "chrome",
+                "request": "launch",
+                "url": "http://localhost:5173",
+                "webRoot": "${workspaceFolder}/frontend/src",
+                "sourceMaps": true,
+                "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile",
+                "preLaunchTask": "Start Frontend Dev Server"
+            },
+            {
+                "name": "Attach to Chrome - Frontend Debug",
+                "type": "chrome",
+                "request": "attach",
+                "port": 9222,
+                "webRoot": "${workspaceFolder}/frontend/src",
+                "sourceMaps": true
+            }
+        ]
+    }
+}

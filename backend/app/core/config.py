@@ -15,6 +15,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
         "https://quickqr-frontend.vercel.app",
         "https://quickqr-frontend.onrender.com",
         "https://quickqr-frontend.netlify.app",
@@ -23,13 +25,22 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = "development"
+    FRONTEND_BASE_URL: Optional[str] = None  # e.g., https://quickqr-frontend.onrender.com
     
     # Port configuration for deployment
     PORT: Optional[int] = None
     
+
     # AI Configuration
     OPENAI_API_KEY: Optional[str] = None
     GROK_API_KEY: Optional[str] = None
+
+    # SMTP Configuration
+    SMTP_FROM: Optional[str] = None
+    SMTP_HOST: Optional[str] = None
+    SMTP_PASS: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USER: Optional[str] = None
 
     
     # QR Code Configuration
@@ -58,3 +69,13 @@ os.makedirs(settings.STATIC_DIR, exist_ok=True)
 # Get port from environment variable (for deployment)
 def get_port():
     return int(os.environ.get("PORT", 8000)) 
+
+# Helper to resolve frontend base URL
+def get_frontend_base_url() -> str:
+    if settings.FRONTEND_BASE_URL:
+        return settings.FRONTEND_BASE_URL.rstrip('/')
+    # Fallbacks by environment
+    env = (settings.ENVIRONMENT or "development").lower()
+    if env in ("production", "prod"):
+        return "https://quickqr-frontend.onrender.com"
+    return "http://localhost:5173"

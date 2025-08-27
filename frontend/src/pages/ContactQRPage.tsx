@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -14,9 +14,40 @@ import {
 } from 'lucide-react'
 import { ContactQRRequest, ContactField } from '../types'
 import { contactQRAPI } from '../services/api'
+import { lostAndFoundAPI } from '../services/lostAndFoundAPI'
+import { useLocation, useParams } from 'react-router-dom'
 import ColorPicker from '../components/ColorPicker'
 
 const ContactQRPage = () => {
+  const location = useLocation()
+  const { qrId } = useParams()
+  const ADMIN_USER_ID = '1c0aa08c-aae9-4634-9e88-3e0a5605bb99'
+  // Scan mode state
+  const [isScanView, setIsScanView] = useState(false)
+  const [scanLoading, setScanLoading] = useState(false)
+  const [scanError, setScanError] = useState<string | null>(null)
+  const [scanCanEdit, setScanCanEdit] = useState(false)
+  const [scanDetails, setScanDetails] = useState<any | null>(null)
+  const [scannedQrId, setScannedQrId] = useState<string | null>(null)
+  const [scannedUserId, setScannedUserId] = useState<string | null>(null)
+
+  // Admin edit form state
+  const [editDetails, setEditDetails] = useState({
+    first_name: '',
+    last_name: '',
+    phone_number: '',
+    address: '',
+    address_location: ''
+  })
+  const [editVisibility, setEditVisibility] = useState<Record<string, boolean>>({
+    first_name: true,
+    last_name: true,
+    phone_number: true,
+    email: false,
+    address: true,
+    address_location: true,
+  })
+
   const [qrCodeData, setQrCodeData] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -49,6 +80,100 @@ const ContactQRPage = () => {
   })
 
   const watchedValues = watch()
+
+  // Decide flow based on URL / query params: if userId present → scan view
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const routeQr = (qrId as string | undefined)
+    const qr_id = routeQr || params.get('qr_id') || params.get('qr') || null
+    const user_id = params.get('user_id') || params.get('userid') || null
+    if (qr_id && user_id) {
+      setIsScanView(true)
+      setScannedQrId(qr_id)
+      setScannedUserId(user_id)
+      setScanLoading(true)
+      setScanError(null)
+      // If not admin → view; if admin → show edit form. Use backend for data when viewing
+      if (user_id === ADMIN_USER_ID) {
+        // Admin: show edit form (no fetch required yet)
+        setScanCanEdit(true)
+        setScanLoading(false)
+      } else {
+        // Non-admin: fetch details to view
+        lostAndFoundAPI.getLostAndFoundQR(qr_id, user_id)
+          .then((res: any) => {
+            setScanCanEdit(!!res?.can_edit)
+            setScanDetails(res?.details || null)
+          })
+          .catch((err: any) => {
+            setScanError(err?.response?.data?.detail || err?.message || 'Failed to load QR details')
+          })
+          .finally(() => setScanLoading(false))
+      }
+    } else if (qr_id) {
+      // viewer without user id -> fetch read-only
+      setIsScanView(true)
+      setScannedQrId(qr_id)
+      setScanLoading(true)
+      lostAndFoundAPI.getLostAndFoundQR(qr_id, '')
+        .then((res: any) => {
+          // If first time scan, open edit form; else display details
+          if (res?.is_first_scan) {
+            setScanCanEdit(true)
+          } else {
+            setScanCanEdit(false)
+            setScanDetails(res?.details || null)
+          }
+        })
+        .catch((err: any) => setScanError(err?.response?.data?.detail || err?.message || 'Failed to load QR details'))
+        .finally(() => setScanLoading(false))
+    } else {
+      setIsScanView(false)
+    }
+  }, [location.search, qrId])
+
+  // Save updated details (admin-only path)
+  const saveScanEdits = async () => {
+    if (!scannedQrId || !scannedUserId) return
+    try {
+      const res = await lostAndFoundAPI.updateQRDetails({
+        qr_id: scannedQrId,
+        user_id: scannedUserId,
+        first_name: editDetails.first_name,
+        last_name: editDetails.last_name,
+        phone_number: editDetails.phone_number,
+        email: '',
+        address: editDetails.address,
+        address_location: editDetails.address_location,
+        description: '',
+        item_type: '',
+        permissions: Object.fromEntries(
+          Object.entries(editVisibility).map(([key, val]) => [key, val ? 'visible' : 'hidden'])
+        ),
+        lock: true
+      })
+      if (res?.success) {
+        toast.success('Details updated')
+        // After saving, show view-only details
+        setScanCanEdit(false)
+        if (scannedQrId) {
+          setScanLoading(true)
+          try {
+            const viewRes = await lostAndFoundAPI.getLostAndFoundQR(scannedQrId, '')
+            setScanDetails(viewRes?.details || null)
+          } catch (e: any) {
+            // ignore
+          } finally {
+            setScanLoading(false)
+          }
+        }
+      } else {
+        toast.error(res?.error || 'Failed to update details')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update details')
+    }
+  }
 
   // Toggle field visibility
   const toggleFieldVisibility = (fieldName: keyof ContactQRRequest) => {
@@ -134,6 +259,107 @@ const ContactQRPage = () => {
     } catch (error) {
       toast.error('Failed to share QR code')
     }
+  }
+
+  // If opened via scan link with user context
+  if (isScanView) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+              Lost & Found
+            </h1>
+            {scannedQrId && (
+              <p className="text-gray-600">QR: {scannedQrId}</p>
+            )}
+          </motion.div>
+
+          <div className="card p-6 space-y-4">
+            {scanLoading && <p className="text-gray-600">Loading...</p>}
+            {scanError && <p className="text-red-600">{scanError}</p>}
+
+            {!scanLoading && !scanError && (
+              <>
+                {scanCanEdit ? (
+                  <>
+                    <h2 className="text-xl font-semibold mb-2">Update Details</h2>
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="First Name"
+                        value={editDetails.first_name}
+                        onChange={(e) => setEditDetails({ ...editDetails, first_name: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editVisibility.first_name} onChange={(e)=>setEditVisibility(v=>({...v, first_name:e.target.checked}))}/> Visible</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="Last Name"
+                        value={editDetails.last_name}
+                        onChange={(e) => setEditDetails({ ...editDetails, last_name: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editVisibility.last_name} onChange={(e)=>setEditVisibility(v=>({...v, last_name:e.target.checked}))}/> Visible</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="Phone Number"
+                        value={editDetails.phone_number}
+                        onChange={(e) => setEditDetails({ ...editDetails, phone_number: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editVisibility.phone_number} onChange={(e)=>setEditVisibility(v=>({...v, phone_number:e.target.checked}))}/> Visible</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="Address"
+                        value={editDetails.address}
+                        onChange={(e) => setEditDetails({ ...editDetails, address: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editVisibility.address} onChange={(e)=>setEditVisibility(v=>({...v, address:e.target.checked}))}/> Visible</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        placeholder="Address Location"
+                        value={editDetails.address_location}
+                        onChange={(e) => setEditDetails({ ...editDetails, address_location: e.target.value })}
+                      />
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editVisibility.address_location} onChange={(e)=>setEditVisibility(v=>({...v, address_location:e.target.checked}))}/> Visible</label>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <button className="btn-primary" onClick={saveScanEdits}>Save</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-semibold mb-2">Details</h2>
+                    {scanDetails ? (
+                      <div className="space-y-2 text-gray-800">
+                        <div><span className="font-medium">First name:</span> {scanDetails.first_name || '-'}</div>
+                        <div><span className="font-medium">Last name:</span> {scanDetails.last_name || '-'}</div>
+                        <div><span className="font-medium">Phone:</span> {scanDetails.phone_number || '-'}</div>
+                        <div><span className="font-medium">Email:</span> {scanDetails.email || '-'}</div>
+                        <div><span className="font-medium">Address:</span> {scanDetails.address || '-'}</div>
+                        <div><span className="font-medium">Location:</span> {scanDetails.address_location || '-'}</div>
+                        <div><span className="font-medium">Description:</span> {scanDetails.description || '-'}</div>
+                        <div><span className="font-medium">Item type:</span> {scanDetails.item_type || '-'}</div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-600">No details available.</p>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
