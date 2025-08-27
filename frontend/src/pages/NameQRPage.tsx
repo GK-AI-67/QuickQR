@@ -18,9 +18,13 @@ const NameQRPage = () => {
     setIsGenerating(true)
     try {
       const API_BASE = import.meta.env.VITE_API_URL || 'https://quickqr-backend.onrender.com/api/v1'
+      const token = localStorage.getItem('auth_token')
       const res = await fetch(`${API_BASE}/qr/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify({
           content,
           qr_type: 'text',

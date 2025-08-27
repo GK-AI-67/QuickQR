@@ -94,7 +94,7 @@ async def generate_qr_code(request: QRCodeRequest, db: Session = Depends(get_db)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QR code: {str(e)}")
 
-@qr_router.post("/generate-pdf-link", response_model=QRCodeResponse)
+e@qr_router.post("/generate-pdf-link", response_model=QRCodeResponse)
 async def generate_pdf_link_qr(request: PdfLinkQRRequest, db: Session = Depends(get_db), user=Depends(get_current_user), http_request: Request = None):
     """Create a QR that redirects through a view page to the PDF, capturing geolocation on scan."""
     try:
