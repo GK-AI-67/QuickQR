@@ -184,3 +184,40 @@ The application is now ready to use! It includes everything you requested:
 Ganapati Bappa Moriya! 🐘🙏 Your QuickQR application is now complete and ready to generate beautiful QR codes with AI intelligence!
 
 **Ganapati Bappa Moriya!** 🐘🙏 
+
+## Lost & Found QR Flow
+
+This feature lets you generate a QR that on first scan asks for details, locks them, and on subsequent scans shows read‑only info – all via the same URL.
+
+- Frontend routes
+  - Public scan page: `/lost-and-found/:qrId` → renders `src/pages/ContactQRPage.tsx`
+  - Generator UI: `/contact-qr` (authenticated)
+
+- Backend endpoints
+  - POST `/api/v1/lost-and-found/generate` → returns `qr_id`, `view_url`
+  - GET `/api/v1/lost-and-found/{qr_id}` → returns
+    - `is_first_scan`: true when no permissions exist yet (first time)
+    - `details`: filtered by permissions on subsequent scans
+  - POST `/api/v1/lost-and-found/update-details` → body includes details plus optional `permissions` and `lock`
+
+- First scan (edit)
+  - Open the QR URL: `https://<frontend>/lost-and-found/<qrId>`
+  - Backend returns `is_first_scan: true` (no permissions yet)
+  - `ContactQRPage` shows a form (first_name, last_name, phone_number, address, address_location) with visibility toggles
+  - On Save, frontend calls `update-details` with:
+    - details fields
+    - `permissions`: `{ field: 'visible' | 'hidden' }`
+    - `lock: true`
+  - Backend stores permissions in `qr_permission_dtls` and blocks further edits
+
+- Subsequent scans (view)
+  - Same URL returns read‑only `details` filtered by stored permissions
+  - Optional query parameters `?user_id=<id>&lat=..&lng=..` are supported; scan events record IP/UA/location
+
+- Data model notes
+  - `lost_and_found_qr.qr_url` stores the public view URL
+  - `qr_permission_dtls` stores per‑field permissions
+
+- Configuration
+  - Backend builds `view_url` using `FRONTEND_BASE_URL` (fallbacks: production → Render URL, dev → `http://localhost:5173`)
+  - Admin user ID (for privileged edit in some flows): `1c0aa08c-aae9-4634-9e88-3e0a5605bb99`
