@@ -19,6 +19,7 @@ import ContactQRPage from './pages/ContactQRPage'
 import AboutPage from './pages/AboutPage'
 import AIContentPage from './pages/AIContentPage'
 import PDFDesignerPage from './pages/PDFDesignerPage'
+import NameQRPage from './pages/NameQRPage'
 
 function App() {
   const navigate = useNavigate()
@@ -136,6 +137,17 @@ function App() {
             >
               <RequireAuth>
                 <PDFDesignerPage />
+              </RequireAuth>
+            </motion.div>
+          } />
+          <Route path="/name-qr" element={
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <RequireAuth>
+                <NameQRPage />
               </RequireAuth>
             </motion.div>
           } />
